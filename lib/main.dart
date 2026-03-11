@@ -5,6 +5,8 @@ import 'dart:io';
 import 'core/theme/ia_colors.dart';
 import 'features/quote/ui/pages/quote_page.dart';
 import 'features/quote/ui/pages/splash_screen.dart';
+import 'features/home/ui/home_screen.dart';
+import 'features/stock/ui/stock_screen.dart';
 import 'core/config/app_config.dart';
 
 import 'core/database/hive_database.dart';
@@ -53,17 +55,25 @@ class _AppRouter extends StatefulWidget {
 }
 
 class _AppRouterState extends State<_AppRouter> {
-  bool _splashDone = false;
-
-  void _onSplashDone() {
-    setState(() => _splashDone = true);
-  }
+  _Screen _screen = _Screen.home; // HomeScreen is the entry point
 
   @override
   Widget build(BuildContext context) {
-    if (!_splashDone) {
-      return SplashScreen(onDone: _onSplashDone);
-    }
-    return const QuotePage();
+    return switch (_screen) {
+      _Screen.home => HomeScreen(
+        onNavigateToVentas: () => setState(() => _screen = _Screen.splash),
+        onNavigateToStock: () => setState(() => _screen = _Screen.stock),
+      ),
+      // SplashScreen (inventory sync) only runs when entering Ventas
+      _Screen.splash => SplashScreen(
+        onDone: () => setState(() => _screen = _Screen.ventas),
+      ),
+      _Screen.ventas => const QuotePage(),
+      _Screen.stock => StockScreen(
+        onBack: () => setState(() => _screen = _Screen.home),
+      ),
+    };
   }
 }
+
+enum _Screen { home, splash, ventas, stock }

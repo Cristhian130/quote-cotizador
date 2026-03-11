@@ -7,8 +7,13 @@ class SQLiteDatabase {
   static Database? _database;
 
   static Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB('quote_app.db');
+    if (_database != null && _database!.isOpen) return _database!;
+    try {
+      _database = await _initDB('quote_app.db');
+    } catch (_) {
+      _database = null;
+      rethrow;
+    }
     return _database!;
   }
 
@@ -19,10 +24,10 @@ class SQLiteDatabase {
     return await openDatabase(
       path,
       version: 4,
+      singleInstance: true,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 4) {
-          // Simplest migration: drop and recreate
           await db.execute('DROP TABLE IF EXISTS products');
           await db.execute('DROP TABLE IF EXISTS delivery_rules');
           await _createDB(db, newVersion);
