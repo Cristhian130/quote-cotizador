@@ -8,7 +8,7 @@ class AppConfig {
 
   static const String localUrl = 'http://localhost:3001';
   static const String ngrokUrl =
-      'https://options-cia-joyce-philips.trycloudflare.com';
+      'https://commissioners-finance-signal-margin.trycloudflare.com';
 
   static final List<String> presets = [ngrokUrl, localUrl];
 
