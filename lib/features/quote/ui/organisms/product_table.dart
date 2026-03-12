@@ -483,8 +483,9 @@ class _DescuentoFieldState extends State<_DescuentoField> {
       ),
       onChanged: (v) {
         final d = double.tryParse(v);
-        if (d != null)
+        if (d != null) {
           widget.onUpdateDescuento(widget.item.id, d.clamp(0, 100));
+        }
       },
       onSubmitted: _apply,
       onTapOutside: (_) {

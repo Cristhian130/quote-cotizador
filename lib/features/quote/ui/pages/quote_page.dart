@@ -65,7 +65,7 @@ class _QuotePageState extends ConsumerState<QuotePage> {
 
   void handleBuscar() async {
     // Validar mínimo 3 letras en descripción si es el único parámetro
-    if (descripcion.trim().length > 0 &&
+    if (descripcion.trim().isNotEmpty &&
         descripcion.trim().length < 3 &&
         referencia.trim().isEmpty) {
       showToast('Atención', 'Digita al menos 3 letras en la descripción.');

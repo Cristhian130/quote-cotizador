@@ -75,8 +75,9 @@ class SqliteDataSource {
   // --- DELIVERY RULES OFFLINE ---
 
   Future<void> bulkInsertDeliveryRules(List<DeliveryRule> rules) async {
-    if (rules.isEmpty)
+    if (rules.isEmpty) {
       return; // Si el endpoint no disponible, no tocamos la tabla
+    }
     final db = await _db;
 
     try {

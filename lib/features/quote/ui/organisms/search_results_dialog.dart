@@ -159,7 +159,7 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
             children: [
               const Text(
                 'Resultados de búsqueda',
-                style: const TextStyle(
+                style: TextStyle(
                   color: IaColors.foreground,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,

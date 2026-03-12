@@ -37,7 +37,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   String _statusLabel = 'Verificando base de datos local...';
   double _progress = 0.0;
   bool _syncError = false;
-  String _errorMsg = '';
+  final String _errorMsg = '';
 
   @override
   void initState() {
@@ -187,8 +187,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     Future.doWhile(() async {
       if (!mounted || step >= steps) return false;
       await Future.delayed(Duration(milliseconds: stepMs));
-      if (mounted)
+      if (mounted) {
         setState(() => _progress = (_progress + increment).clamp(0, to));
+      }
       step++;
       return true;
     });
@@ -224,7 +225,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           // Animated particles
           AnimatedBuilder(
             animation: _particleCtrl,
-            builder: (_, __) =>
+            builder: (_, _) =>
                 CustomPaint(painter: _ParticlePainter(_particleCtrl.value)),
           ),
 
@@ -285,7 +286,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                               'assets/Banner IA-01.jpg',
                               height: 56,
                               fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => Container(
+                              errorBuilder: (_, _, _) => Container(
                                 height: 56,
                                 width: 160,
                                 color: _lightBlue.withOpacity(0.3),

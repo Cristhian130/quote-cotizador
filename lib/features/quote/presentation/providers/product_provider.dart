@@ -6,7 +6,6 @@ import '../../data/datasources/sqlite_data_source.dart';
 import '../../data/datasources/hive_data_source.dart';
 import '../../data/repositories/product_repository_impl.dart';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'product_provider.g.dart';
 
