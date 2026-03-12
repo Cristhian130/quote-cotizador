@@ -12,5 +12,7 @@ abstract class IProductRepository {
   });
 
   /// Obliga una sincronización desde la API remota hacia SQLite y limpia Hive.
-  Future<Either<Failure, void>> syncProducts();
+  Future<Either<Failure, void>> syncProducts({
+    void Function(String message)? onProgress,
+  });
 }

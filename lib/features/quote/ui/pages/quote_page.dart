@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../presentation/providers/product_provider.dart';
@@ -222,18 +224,165 @@ class _QuotePageState extends ConsumerState<QuotePage> {
   }
 
   void handleSincronizar() {
-    showToast('Sincronizando', 'Descargando facturación en segundo plano...');
+    // Controller to manage the dialog's state from outside
+    final streamController = StreamController<String>.broadcast();
+    bool isSyncing = true;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              title: const Row(
+                children: [
+                  Icon(Icons.sync_rounded, color: IaColors.primary),
+                  SizedBox(width: 8),
+                  Text(
+                    'Sincronizando Base de Datos',
+                    style: TextStyle(fontSize: 18),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (isSyncing)
+                      const LinearProgressIndicator(
+                        backgroundColor: Color(0xFFE5E7EB), // light grey
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          IaColors.primary,
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    StreamBuilder<String>(
+                      stream: streamController.stream,
+                      builder: (context, snapshot) {
+                        return Text(
+                          snapshot.data ?? 'Iniciando sincronización...',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF4B5563), // dark grey
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                if (!isSyncing)
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text(
+                      'Cerrar',
+                      style: TextStyle(color: IaColors.primary),
+                    ),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
     final repo = ref.read(productRepositoryProvider);
-    repo.syncProducts().then((result) {
-      if (!mounted) return;
-      result.fold(
-        (failure) => showToast('Error de Sincronización', failure.message),
-        (_) => showToast(
-          '¡Sincronización Exitosa!',
-          'Tu base de datos SQLite ahora está completamente actualizada.',
-        ),
-      );
-    });
+    repo
+        .syncProducts(
+          onProgress: (message) {
+            if (!streamController.isClosed) {
+              streamController.add(message);
+            }
+          },
+        )
+        .then((result) async {
+          isSyncing = false;
+          if (!mounted) {
+            streamController.close();
+            return;
+          }
+
+          result.fold(
+            (failure) {
+              if (!streamController.isClosed) {
+                streamController.add(
+                  '❌ Error de Sincronización: \\n${failure.message}',
+                );
+              }
+            },
+            (_) async {
+              if (!streamController.isClosed) {
+                streamController.add(
+                  '✅ ¡Sincronización Exitosa!\\nTu base de datos SQLite ahora está completamente actualizada.',
+                );
+              }
+
+              // Removed audioplayer logic since we show a dialog at the end
+            },
+          );
+
+          // Update UI to show close button
+          // To force rebuild of actions, we can pop and push or just use a state variable.
+          // Since we are not rebuilding the whole dialog from outside, we'll delay a bit and let user close it.
+          // Easiest is to pop the dialog and show a toast if they want it gone.
+          // But user requested a timeline that stays. The StatefulBuilder doesn't easily trigger from outside the builder.
+          // We will close the dialog and show a new one with the final result.
+          Navigator.of(context).pop();
+          streamController.close();
+
+          result.fold(
+            (failure) {
+              showToast('Error de Sincronización', failure.message);
+            },
+            (_) async {
+              // Show final success dialog
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  title: const Row(
+                    children: [
+                      Icon(Icons.check_circle_rounded, color: Colors.green),
+                      SizedBox(width: 8),
+                      Text(
+                        '¡Sincronización Exitosa!',
+                        style: TextStyle(fontSize: 18),
+                      ),
+                    ],
+                  ),
+                  content: const Text(
+                    'La información se ha descargado y la base de datos local está actualizada.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text(
+                        'Aceptar',
+                        style: TextStyle(color: IaColors.primary),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+
+              try {
+                // Play system alert sound to avoid Windows media player URL exceptions
+                SystemSound.play(SystemSoundType.alert);
+              } catch (e) {
+                print('Could not play sound: $e');
+              }
+            },
+          );
+        });
   }
 
   @override

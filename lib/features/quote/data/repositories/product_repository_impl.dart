@@ -61,11 +61,14 @@ class ProductRepositoryImpl implements IProductRepository {
   }
 
   @override
-  Future<Either<Failure, void>> syncProducts() async {
+  Future<Either<Failure, void>> syncProducts({
+    void Function(String message)? onProgress,
+  }) async {
     try {
       print(
         '🚀 [SYNC] Iniciando descarga de inventario y reglas de entrega...',
       );
+      onProgress?.call('Conectando con el servidor para descargas...');
 
       // 1. Descargar Data pesada de NestJS (Productos y Tarifas en Paralelo)
       final results = await Future.wait([
@@ -80,21 +83,34 @@ class ProductRepositoryImpl implements IProductRepository {
       print(
         '✅ [SYNC] Descargadas ${apiDeliveryRules.length} reglas de entrega del API.',
       );
+      onProgress?.call(
+        'Descarga completada: ${apiProducts.length} productos recibidos.\\nPreparando base de datos local...',
+      );
 
       // 2. Volcado a SQLite con persistencia sólida (Ejecutado secuencialmente para evitar el Database Lock)
       print('💾 [SYNC] Guardando en SQLite...');
+      onProgress?.call(
+        'Guardando productos en la base de datos (paso 1 de 2)...',
+      );
       await sqliteDataSource.bulkInsert(apiProducts);
+      onProgress?.call('Guardando reglas de entrega (paso 2 de 2)...');
       await sqliteDataSource.bulkInsertDeliveryRules(apiDeliveryRules);
+
       final countAfter = await sqliteDataSource.getProductsCount();
       print('💾 [SYNC] SQLite ahora tiene $countAfter productos.');
+      onProgress?.call(
+        'Base de datos SQLite actualizada correctamente con $countAfter productos.',
+      );
 
       // 3. Limpiar Caché de Hive, la data ha cambiado
       print('🗑️  [SYNC] Limpiando caché de Hive...');
+      onProgress?.call('Limpiando memoria caché antigua...');
       await hiveDataSource.clearCache();
 
       // 4. Actualizar tiempo de última sincronización
       await hiveDataSource.updateLastSyncTime();
       print('🎉 [SYNC] ¡Sincronización completada exitosamente!');
+      onProgress?.call('¡Sincronización finalizada con éxito!');
 
       return const Right(null);
     } catch (e, stack) {
