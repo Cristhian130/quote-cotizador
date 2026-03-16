@@ -116,6 +116,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     );
     await Future.delayed(const Duration(milliseconds: 300));
 
+    // --- DEV MODE HOT RESTART BYPASS ---
+    bool isDevBypass = true;
+    if (isDevBypass) {
+      if (mounted) widget.onDone();
+      return;
+    }
+    // -----------------------------------
+
     try {
       final repo = ref.read(productRepositoryProvider);
 

@@ -5,7 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 class ActionBar extends StatelessWidget {
   final VoidCallback onCalcular;
-  final VoidCallback onDescargar;
+  final VoidCallback? onDescargar;
   final VoidCallback onLimpiar;
   final VoidCallback onAnadirClientes;
   final VoidCallback onSincronizar;
@@ -13,7 +13,7 @@ class ActionBar extends StatelessWidget {
   const ActionBar({
     super.key,
     required this.onCalcular,
-    required this.onDescargar,
+    this.onDescargar,
     required this.onLimpiar,
     required this.onAnadirClientes,
     required this.onSincronizar,
@@ -42,7 +42,7 @@ class ActionBar extends StatelessWidget {
               children: [
                 Icon(LucideIcons.userPlus),
                 SizedBox(width: 8),
-                Text('Clientes y Vendedores'),
+                Text('Clientes'),
               ],
             ),
           ),

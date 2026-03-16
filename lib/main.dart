@@ -8,6 +8,7 @@ import 'features/quote/ui/pages/splash_screen.dart';
 import 'core/config/app_config.dart';
 
 import 'core/database/hive_database.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +20,7 @@ void main() async {
 
   await HiveDatabase.init();
   await AppConfig.init();
+  await initializeDateFormatting('es_CO', null);
   runApp(const ProviderScope(child: MyApp()));
 }
 

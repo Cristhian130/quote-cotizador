@@ -7,6 +7,7 @@ class LabeledInput extends StatelessWidget {
   final String? placeholder;
   final String? value;
   final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
   final bool isDense;
 
   const LabeledInput({
@@ -15,6 +16,7 @@ class LabeledInput extends StatelessWidget {
     this.placeholder,
     this.value,
     this.onChanged,
+    this.onSubmitted,
     this.isDense = false,
   });
 
@@ -38,6 +40,7 @@ class LabeledInput extends StatelessWidget {
           placeholder: placeholder,
           value: value,
           onChanged: onChanged,
+          onSubmitted: onSubmitted,
           isDense: isDense,
         ),
       ],

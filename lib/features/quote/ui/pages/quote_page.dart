@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../presentation/providers/product_provider.dart';
+import '../../presentation/providers/quote_provider.dart';
 import '../../domain/entities/product.dart';
 import '../../../../core/theme/ia_colors.dart';
 import '../../models/product_item.dart';
@@ -12,6 +13,8 @@ import '../organisms/product_table.dart';
 import '../organisms/action_bar.dart';
 import '../organisms/summary_panel.dart';
 import '../organisms/search_results_dialog.dart';
+import '../organisms/client_stepper_dialog.dart';
+import '../../presentation/services/invoice_pdf_service.dart';
 import 'package:intl/intl.dart';
 
 class QuotePage extends ConsumerStatefulWidget {
@@ -25,29 +28,19 @@ class _QuotePageState extends ConsumerState<QuotePage> {
   String referencia = '';
   String descripcion = '';
   String bodega = '';
-  List<ProductItem> items = []; // Empieza vacío en producción
-  bool cobraDomicilio = true;
-  String vehiculo = 'MO';
-  String ciudad = '';
-  String barrio = '';
 
-  // Val. Mercancia = P.+IVA × cantidad (antes de descuento)
-  double get valMercancia => items.fold(
-    0.0,
-    (sum, item) => sum + (item.precioXUnidad * item.cantidad),
-  );
-  double get descuentos =>
-      items.fold(0.0, (sum, item) => sum + item.descuentoAplicado);
-  // Subtotal SIN IVA = (P.+IVA×cant - descuentos) - IVA
-  double get subtotal => (valMercancia - descuentos) - ivaTotal;
-  // IVA informativo: se extrae del precio base para mostrarlo por separado
-  double get ivaTotal => items.fold(
-    0.0,
-    (sum, item) =>
-        sum + ((item.precioUnitario * item.cantidad * item.iva) / 100),
-  );
-  // Valor Neto = Subtotal + IVA (total con IVA)
-  double get valorNeto => subtotal + ivaTotal;
+  // Getters moved to provider or calculated from provider state
+  QuoteState get quoteState => ref.watch(quoteProvider);
+  List<ProductItem> get items => quoteState.items;
+  double get valMercancia => quoteState.valMercancia;
+  double get descuentos => quoteState.descuentos;
+  double get subtotal => quoteState.subtotal;
+  double get ivaTotal => quoteState.ivaTotal;
+  double get valorNeto => quoteState.valorNeto;
+  bool get cobraDomicilio => quoteState.cobraDomicilio;
+  String get vehiculo => quoteState.vehiculo;
+  String get ciudad => quoteState.ciudad;
+  String get barrio => quoteState.barrio;
 
   void showToast(String title, [String? description]) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -118,26 +111,24 @@ class _QuotePageState extends ConsumerState<QuotePage> {
     } else {
       final precioConIva = product.precioParti * (1 + product.iva / 100);
       // precioXUnidad = P.+IVA: es la base para descuentos y totales
-      setState(() {
-        items.add(
-          ProductItem(
-            id: uniqueId,
-            referencia: product.referencia,
-            descripcion: product.descripcion,
-            bodega: product.bodega,
-            disponible: product.disponible,
-            ubicacion: product.ubicacion ?? '',
-            precioUnitario: product.precioParti,
-            iva: product.iva,
-            precioConIva: precioConIva,
-            descuento: 0,
-            descuentoAplicado: 0,
-            cantidad: 1,
-            precioTotal: precioConIva, // P.+IVA
-            precioXUnidad: precioConIva, // P.+IVA como precio de escala
-          ),
-        );
-      });
+      ref.read(quoteProvider.notifier).addItem(
+        ProductItem(
+          id: uniqueId,
+          referencia: product.referencia,
+          descripcion: product.descripcion,
+          bodega: product.bodega,
+          disponible: product.disponible,
+          ubicacion: product.ubicacion ?? '',
+          precioUnitario: product.precioParti,
+          iva: product.iva,
+          precioConIva: precioConIva,
+          descuento: 0,
+          descuentoAplicado: 0,
+          cantidad: 1,
+          precioTotal: precioConIva, // P.+IVA
+          precioXUnidad: precioConIva, // P.+IVA como precio de escala
+        ),
+      );
       showToast('Añadido a factura', product.descripcion);
     }
   }
@@ -151,44 +142,15 @@ class _QuotePageState extends ConsumerState<QuotePage> {
   }
 
   void handleUpdateCantidad(String id, int cantidad) {
-    setState(() {
-      items = items.map((item) {
-        if (item.id != id) return item;
-        // Base = P.+IVA × cantidad
-        final base = item.precioXUnidad * cantidad;
-        final newDescuentoAplicado = (base * item.descuento) / 100;
-        final newPrecioTotal = base - newDescuentoAplicado;
-        return item.copyWith(
-          cantidad: cantidad,
-          precioTotal: newPrecioTotal,
-          descuentoAplicado: newDescuentoAplicado,
-        );
-      }).toList();
-    });
+    ref.read(quoteProvider.notifier).updateCantidad(id, cantidad);
   }
 
   void handleUpdateDescuento(String id, double nuevoDescuento) {
-    setState(() {
-      items = items.map((item) {
-        if (item.id != id) return item;
-        final safeDescuento = nuevoDescuento.clamp(0.0, 100.0);
-        // Base = P.+IVA × cantidad
-        final base = item.precioXUnidad * item.cantidad;
-        final newDescuentoAplicado = (base * safeDescuento) / 100;
-        final newPrecioTotal = base - newDescuentoAplicado;
-        return item.copyWith(
-          descuento: safeDescuento,
-          descuentoAplicado: newDescuentoAplicado,
-          precioTotal: newPrecioTotal,
-        );
-      }).toList();
-    });
+    ref.read(quoteProvider.notifier).updateDescuento(id, nuevoDescuento);
   }
 
   void handleRemoveItem(String id) {
-    setState(() {
-      items = items.where((item) => item.id != id).toList();
-    });
+    ref.read(quoteProvider.notifier).removeItem(id);
     showToast('Producto eliminado');
   }
 
@@ -204,23 +166,32 @@ class _QuotePageState extends ConsumerState<QuotePage> {
     );
   }
 
-  void handleDescargar() {
-    showToast('Generando descarga...');
+  void handleDescargar() async {
+    showToast('Generando factura...');
+    try {
+      final path = await InvoicePdfService.generateInvoice(quoteState);
+      showToast('Descargado', 'Archivo guardado en: $path');
+    } catch (e) {
+      showToast('Error', 'No se pudo descargar el PDF: $e');
+    }
   }
 
   void handleLimpiar() {
     setState(() {
-      items = [];
       referencia = "";
       descripcion = "";
       bodega = "";
-      cobraDomicilio = false;
     });
+    ref.read(quoteProvider.notifier).clear();
     showToast('Factura limpiada');
   }
 
   void handleAnadirClientes() {
-    showToast('Abrir gestion de clientes y vendedores');
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const ClientStepperDialog(),
+    );
   }
 
   void handleSincronizar() {
@@ -418,7 +389,7 @@ class _QuotePageState extends ConsumerState<QuotePage> {
                           ),
                           ActionBar(
                             onCalcular: handleCalcular,
-                            onDescargar: handleDescargar,
+                            onDescargar: quoteState.canDownload ? handleDescargar : null,
                             onLimpiar: handleLimpiar,
                             onAnadirClientes: handleAnadirClientes,
                             onSincronizar: handleSincronizar,
@@ -426,23 +397,22 @@ class _QuotePageState extends ConsumerState<QuotePage> {
                         ],
                       ),
                     ),
-                    SummaryPanel(
-                      valMercancia: valMercancia,
-                      descuentos: descuentos,
-                      subtotal: subtotal,
-                      iva: ivaTotal,
-                      cobraDomicilio: cobraDomicilio,
-                      setCobraDomicilio: (v) =>
-                          setState(() => cobraDomicilio = v),
-                      vehiculo: vehiculo,
-                      setVehiculo: (v) => setState(() => vehiculo = v ?? 'MO'),
-                      ciudad: ciudad,
-                      setCiudad: (v) => setState(() => ciudad = v ?? ''),
-                      barrio: barrio,
-                      setBarrio: (v) => setState(() => barrio = v ?? ''),
-                      valorNeto: valorNeto,
-                      bodega: bodega,
-                    ),
+                      SummaryPanel(
+                        valMercancia: valMercancia,
+                        descuentos: descuentos,
+                        subtotal: subtotal,
+                        iva: ivaTotal,
+                        cobraDomicilio: cobraDomicilio,
+                        setCobraDomicilio: (v) => ref.read(quoteProvider.notifier).updateConfig(cobraDomicilio: v),
+                        vehiculo: vehiculo,
+                        setVehiculo: (v) => ref.read(quoteProvider.notifier).updateConfig(vehiculo: v ?? 'MO'),
+                        ciudad: ciudad,
+                        setCiudad: (v) => ref.read(quoteProvider.notifier).updateConfig(ciudad: v ?? ''),
+                        barrio: barrio,
+                        setBarrio: (v) => ref.read(quoteProvider.notifier).updateConfig(barrio: v ?? ''),
+                        valorNeto: valorNeto,
+                        bodega: bodega,
+                      ),
                   ],
                 ),
               ),

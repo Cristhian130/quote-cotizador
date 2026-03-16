@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/ia_colors.dart';
 import '../../../../core/config/app_config.dart';
+import '../../presentation/providers/notification_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 
-class InvoiceHeader extends StatefulWidget {
+class InvoiceHeader extends ConsumerStatefulWidget {
   const InvoiceHeader({super.key});
 
   @override
-  State<InvoiceHeader> createState() => _InvoiceHeaderState();
+  ConsumerState<InvoiceHeader> createState() => _InvoiceHeaderState();
 }
 
-class _InvoiceHeaderState extends State<InvoiceHeader> {
+class _InvoiceHeaderState extends ConsumerState<InvoiceHeader> {
   String _activeUrl = AppConfig.baseUrl;
 
   void _showServerPicker() {
@@ -213,6 +215,57 @@ class _InvoiceHeaderState extends State<InvoiceHeader> {
           // ── Right controls ────────────────────────────
           Row(
             children: [
+              // Notification Bell
+              Consumer(
+                builder: (context, ref, child) {
+                  final notificationState = ref.watch(notificationProvider);
+                  final count = notificationState.draftCount;
+
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          // TODO: Show drafts list
+                        },
+                        icon: Icon(
+                          count > 0 ? LucideIcons.bellRing : LucideIcons.bell,
+                          color: count > 0 ? Colors.orange : IaColors.mutedForeground,
+                          size: 20,
+                        ),
+                      ),
+                      if (count > 0)
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Text(
+                              '$count',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+
+              const SizedBox(width: 8),
+
               // Server indicator + picker
               Tooltip(
                 message: 'Cambiar servidor backend',

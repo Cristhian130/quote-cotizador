@@ -8,7 +8,7 @@ import 'package:intl/intl.dart';
 
 const Color _neonBlue = Color(0xFF458AC9);
 
-class ProductTable extends StatelessWidget {
+class ProductTable extends StatefulWidget {
   final List<ProductItem> items;
   final void Function(String id, int cantidad) onUpdateCantidad;
   final void Function(String id, double descuento) onUpdateDescuento;
@@ -22,6 +22,13 @@ class ProductTable extends StatelessWidget {
     required this.onRemoveItem,
   });
 
+  @override
+  State<ProductTable> createState() => _ProductTableState();
+}
+
+class _ProductTableState extends State<ProductTable> {
+  String _searchQuery = '';
+
   String _formatCurrency(double value) {
     return NumberFormat.simpleCurrency(
       locale: 'es_CO',
@@ -32,15 +39,56 @@ class ProductTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Local filtering
+    final filteredItems = widget.items.where((item) {
+      if (_searchQuery.isEmpty) return true;
+      final q = _searchQuery.toLowerCase();
+      return item.referencia.toLowerCase().contains(q) ||
+          item.descripcion.toLowerCase().contains(q) ||
+          item.bodega.toLowerCase().contains(q);
+    }).toList();
+
     return Expanded(
       child: Container(
         color: IaColors.card,
         child: Column(
           children: [
+            if (widget.items.length > 1) _buildSearchBar(),
             _buildHeader(),
-            Expanded(child: items.isEmpty ? _buildEmptyState() : _buildList()),
+            Expanded(child: filteredItems.isEmpty ? _buildEmptyState() : _buildList(filteredItems)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.search, size: 16, color: IaColors.mutedForeground),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              onChanged: (v) => setState(() => _searchQuery = v),
+              style: const TextStyle(fontSize: 13),
+              decoration: const InputDecoration(
+                isDense: true,
+                hintText: 'Filtrar productos en la factura (referencia, descripcion, bodega)...',
+                hintStyle: TextStyle(color: IaColors.mutedForeground, fontSize: 13),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+          if (_searchQuery.isNotEmpty)
+            InkWell(
+              onTap: () => setState(() => _searchQuery = ''),
+              child: const Icon(LucideIcons.x, size: 16, color: IaColors.mutedForeground),
+            )
+        ],
       ),
     );
   }
@@ -118,15 +166,15 @@ class ProductTable extends StatelessWidget {
     );
   }
 
-  Widget _buildList() {
+  Widget _buildList(List<ProductItem> displayedItems) {
     return ListView.builder(
-      itemCount: items.length,
+      itemCount: displayedItems.length,
       itemBuilder: (_, i) => _GlowingRow(
-        key: ValueKey(items[i].id),
-        item: items[i],
-        onUpdateCantidad: onUpdateCantidad,
-        onUpdateDescuento: onUpdateDescuento,
-        onRemoveItem: onRemoveItem,
+        key: ValueKey(displayedItems[i].id),
+        item: displayedItems[i],
+        onUpdateCantidad: widget.onUpdateCantidad,
+        onUpdateDescuento: widget.onUpdateDescuento,
+        onRemoveItem: widget.onRemoveItem,
         formatCurrency: _formatCurrency,
       ),
     );

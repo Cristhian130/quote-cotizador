@@ -7,8 +7,7 @@ class AppConfig {
   static const _keyBaseUrl = 'base_url';
 
   static const String localUrl = 'http://localhost:3001';
-  static const String ngrokUrl =
-      'https://michael-forge-camcorder-runtime.trycloudflare.com';
+  static const String ngrokUrl = 'http://172.191.47.164:1466';
 
   static final List<String> presets = [ngrokUrl, localUrl];
 
