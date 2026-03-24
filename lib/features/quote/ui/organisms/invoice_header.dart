@@ -5,6 +5,7 @@ import '../../presentation/providers/notification_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
+import 'notification_panel.dart';
 
 class InvoiceHeader extends ConsumerStatefulWidget {
   const InvoiceHeader({super.key});
@@ -15,6 +16,28 @@ class InvoiceHeader extends ConsumerStatefulWidget {
 
 class _InvoiceHeaderState extends ConsumerState<InvoiceHeader> {
   String _activeUrl = AppConfig.baseUrl;
+  OverlayEntry? _overlayEntry;
+
+  @override
+  void dispose() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+    super.dispose();
+  }
+
+  void _toggleNotifications() {
+    if (_overlayEntry != null) {
+      _overlayEntry!.remove();
+      _overlayEntry = null;
+    } else {
+      _overlayEntry = OverlayEntry(
+        builder: (context) => NotificationPanel(
+          onClose: _toggleNotifications,
+        ),
+      );
+      Overlay.of(context).insert(_overlayEntry!);
+    }
+  }
 
   void _showServerPicker() {
     final customCtrl = TextEditingController();
@@ -225,9 +248,7 @@ class _InvoiceHeaderState extends ConsumerState<InvoiceHeader> {
                     clipBehavior: Clip.none,
                     children: [
                       IconButton(
-                        onPressed: () {
-                          // TODO: Show drafts list
-                        },
+                        onPressed: _toggleNotifications,
                         icon: Icon(
                           count > 0 ? LucideIcons.bellRing : LucideIcons.bell,
                           color: count > 0 ? Colors.orange : IaColors.mutedForeground,

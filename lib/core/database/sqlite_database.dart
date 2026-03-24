@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class SQLiteDatabase {
   static Database? _database;
@@ -13,7 +14,19 @@ class SQLiteDatabase {
   }
 
   static Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
+    late String dbPath;
+
+    // On Windows/Linux/macOS (desktop), getDatabasesPath() points to the
+    // installation folder which is read-only once the app is installed.
+    // Use getApplicationSupportDirectory() instead – this always resolves to a
+    // user-writable location (e.g. %APPDATA%\quote on Windows).
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      final appSupportDir = await getApplicationSupportDirectory();
+      dbPath = appSupportDir.path;
+    } else {
+      dbPath = await getDatabasesPath();
+    }
+
     final path = join(dbPath, filePath);
 
     return await openDatabase(
