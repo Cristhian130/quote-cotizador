@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../domain/entities/product.dart';
 import '../../../../core/theme/ia_colors.dart';
+import '../../../../features/stock/data/stock_alerts_demo.dart';
 
 const Color _lightBlue = Color(0xFF458AC9);
 
@@ -440,18 +441,51 @@ class _ProductRowState extends State<_ProductRow> {
                   ),
                 ),
               ),
-              // Descripcion
+              // Descripcion with optional alert badge
               Expanded(
                 flex: 4,
-                child: Text(
-                  widget.product.descripcion,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: IaColors.foreground,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        widget.product.descripcion,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: IaColors.foreground,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (getAlertsForProduct(widget.product.referencia).isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF0F0),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0xFFFDE1E1)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.local_fire_department, size: 12, color: Color(0xFFE53935)),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Alerta',
+                              style: const TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFE53935),
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               // Bodega

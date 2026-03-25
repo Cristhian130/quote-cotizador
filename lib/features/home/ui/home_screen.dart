@@ -13,11 +13,13 @@ const Color _border = Color(0xFFE2E4E9);
 class HomeScreen extends StatefulWidget {
   final VoidCallback onNavigateToVentas;
   final VoidCallback onNavigateToStock;
+  final VoidCallback onNavigateToInsights;
 
   const HomeScreen({
     super.key,
     required this.onNavigateToVentas,
     required this.onNavigateToStock,
+    required this.onNavigateToInsights,
   });
 
   @override
@@ -145,6 +147,8 @@ class _HomeScreenState extends State<HomeScreen>
       widget.onNavigateToVentas();
     } else if (module.id == 'stock') {
       widget.onNavigateToStock();
+    } else if (module.id == 'insights') {
+      widget.onNavigateToInsights();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

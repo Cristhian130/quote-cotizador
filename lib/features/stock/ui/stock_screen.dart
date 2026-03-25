@@ -38,6 +38,11 @@ class _MenuItem {
 const List<_MenuItem> _menu = [
   _MenuItem(id: 'dashboard', label: 'Dashboard', icon: Icons.bar_chart_rounded),
   _MenuItem(
+    id: 'insights',
+    label: 'Smart Insights',
+    icon: Icons.insights_rounded,
+  ),
+  _MenuItem(
     id: 'transaccion',
     label: 'Transacción de Stock',
     icon: Icons.swap_horiz_rounded,
@@ -57,6 +62,12 @@ const List<_MenuItem> _menu = [
     label: 'Solicitar Referencia',
     icon: Icons.add_shopping_cart_rounded,
   ),
+  _MenuItem(
+    id: 'visor',
+    label: 'Visor de Inventario',
+    icon: Icons.table_chart_rounded,
+  ),
+  _MenuItem(id: 'reglas', label: 'Reglas de Negocio', icon: Icons.rule_rounded),
   _MenuItem(
     id: 'ajuste',
     label: 'Ajuste',
@@ -98,8 +109,13 @@ const List<_MenuItem> _menu = [
 
 class StockScreen extends StatefulWidget {
   final VoidCallback onBack;
+  final String initialId;
 
-  const StockScreen({super.key, required this.onBack});
+  const StockScreen({
+    super.key,
+    required this.onBack,
+    this.initialId = 'dashboard',
+  });
 
   @override
   State<StockScreen> createState() => _StockScreenState();
@@ -107,7 +123,7 @@ class StockScreen extends StatefulWidget {
 
 class _StockScreenState extends State<StockScreen>
     with TickerProviderStateMixin {
-  String _activeId = 'dashboard';
+  late String _activeId;
   bool _ajusteExpanded = false;
   final TextEditingController _searchCtrl = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
@@ -120,6 +136,7 @@ class _StockScreenState extends State<StockScreen>
   @override
   void initState() {
     super.initState();
+    _activeId = widget.initialId;
     _contentFadeCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -714,7 +731,11 @@ class _TopBar extends StatelessWidget {
         if (child.id == activeId) return '${item.label} / ${child.label}';
       }
     }
-    return activeId == 'notificacion' ? 'Notificación' : activeId;
+    if (activeId == 'notificacion') return 'Notificación';
+    if (activeId == 'visor') return 'Visor de Inventario';
+    if (activeId == 'reglas') return 'Reglas de Negocio';
+    if (activeId == 'insights') return 'Smart Insights';
+    return activeId;
   }
 
   @override
@@ -724,7 +745,8 @@ class _TopBar extends StatelessWidget {
         activeId == 'transaccion' ||
         activeId == 'recibo' ||
         activeId == 'salida' ||
-        activeId == 'solicitud';
+        activeId == 'solicitud' ||
+        activeId == 'visor';
 
     return Container(
       height: 44,
@@ -757,6 +779,17 @@ class _TopBar extends StatelessWidget {
   }
 
   List<Widget> _listToolbar(String id) {
+    if (id == 'visor') {
+      return [
+        _DropdownChip(label: 'Vista de Lista', icon: Icons.view_list_rounded),
+        const SizedBox(width: 8),
+        _DropdownChip(label: 'Filtros guardados', icon: null),
+        const SizedBox(width: 8),
+        _HoverIcon(icon: Icons.refresh_rounded, onTap: () {}),
+        const SizedBox(width: 4),
+        _HoverIcon(icon: Icons.download_rounded, onTap: () {}),
+      ];
+    }
     final label = id == 'transaccion'
         ? 'Transacción de Stock'
         : id == 'recibo'
@@ -799,7 +832,8 @@ class _ContentArea extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (activeId) {
       case 'dashboard':
-        return const _DashboardContent();
+      case 'insights':
+        return const _SmartDashboard();
       case 'transaccion':
         return const _TransaccionListView();
       case 'recibo':
@@ -808,6 +842,10 @@ class _ContentArea extends StatelessWidget {
         return const _SalidaListView();
       case 'solicitud':
         return const _SolicitudListView();
+      case 'visor':
+        return const _VisorInventarioListView();
+      case 'reglas':
+        return const _ReglasNegocioPanel();
       default:
         return _EmptyState(activeId: activeId);
     }
@@ -1181,10 +1219,7 @@ class _SolicitudListViewState extends State<_SolicitudListView>
                             const SizedBox(height: 16),
                             const Text(
                               'Aún no has creado ninguna Solicitud de Material',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: _textMuted,
-                              ),
+                              style: TextStyle(fontSize: 13, color: _textMuted),
                             ),
                             const SizedBox(height: 16),
                             MouseRegion(
@@ -7695,10 +7730,7 @@ class _SolicitudDetallesTabState extends State<_SolicitudDetallesTab> {
                             required: true,
                             child: _DropdownField(
                               value: _serie,
-                              items: const [
-                                'MAT-MR-.YYYY.-',
-                                'MR-.YYYY.-',
-                              ],
+                              items: const ['MAT-MR-.YYYY.-', 'MR-.YYYY.-'],
                               onChanged: (v) => setState(() => _serie = v),
                             ),
                           ),
@@ -7743,7 +7775,9 @@ class _SolicitudDetallesTabState extends State<_SolicitudDetallesTab> {
                           const SizedBox(height: 14),
                           _FormField(
                             label: 'Lista de Precios',
-                            child: const _TextInputField(hint: 'Standard Buying'),
+                            child: const _TextInputField(
+                              hint: 'Standard Buying',
+                            ),
                           ),
                         ],
                       ),
@@ -7753,7 +7787,7 @@ class _SolicitudDetallesTabState extends State<_SolicitudDetallesTab> {
               ),
             ),
             const SizedBox(height: 20),
-            
+
             // Artículos section
             _RcCard(
               child: _InlineAccordion(
@@ -7773,10 +7807,14 @@ class _SolicitudDetallesTabState extends State<_SolicitudDetallesTab> {
                                   Expanded(
                                     child: Container(
                                       height: 34,
-                                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFF8F9FA),
-                                        border: Border.all(color: const Color(0xFFE2E4E9)),
+                                        border: Border.all(
+                                          color: const Color(0xFFE2E4E9),
+                                        ),
                                         borderRadius: const BorderRadius.only(
                                           topLeft: Radius.circular(5),
                                           bottomLeft: Radius.circular(5),
@@ -7790,16 +7828,26 @@ class _SolicitudDetallesTabState extends State<_SolicitudDetallesTab> {
                                     decoration: const BoxDecoration(
                                       color: Color(0xFFF8F9FA),
                                       border: Border(
-                                        top: BorderSide(color: Color(0xFFE2E4E9)),
-                                        right: BorderSide(color: Color(0xFFE2E4E9)),
-                                        bottom: BorderSide(color: Color(0xFFE2E4E9)),
+                                        top: BorderSide(
+                                          color: Color(0xFFE2E4E9),
+                                        ),
+                                        right: BorderSide(
+                                          color: Color(0xFFE2E4E9),
+                                        ),
+                                        bottom: BorderSide(
+                                          color: Color(0xFFE2E4E9),
+                                        ),
                                       ),
                                       borderRadius: BorderRadius.only(
                                         topRight: Radius.circular(5),
                                         bottomRight: Radius.circular(5),
                                       ),
                                     ),
-                                    child: const Icon(Icons.qr_code_scanner, size: 16, color: Color(0xFF8A94A6)),
+                                    child: const Icon(
+                                      Icons.qr_code_scanner,
+                                      size: 16,
+                                      color: Color(0xFF8A94A6),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -7811,10 +7859,14 @@ class _SolicitudDetallesTabState extends State<_SolicitudDetallesTab> {
                               label: 'Bodega Destino',
                               child: Container(
                                 height: 34,
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF8F9FA),
-                                  border: Border.all(color: const Color(0xFFE2E4E9)),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E4E9),
+                                  ),
                                   borderRadius: BorderRadius.circular(5),
                                 ),
                               ),
@@ -7823,7 +7875,7 @@ class _SolicitudDetallesTabState extends State<_SolicitudDetallesTab> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      
+
                       const Padding(
                         padding: EdgeInsets.only(bottom: 8),
                         child: Align(
@@ -7848,23 +7900,50 @@ class _SolicitudDetallesTabState extends State<_SolicitudDetallesTab> {
                             Container(
                               height: 36,
                               decoration: const BoxDecoration(
-                                border: Border(bottom: BorderSide(color: Color(0xFFE2E4E9))),
+                                border: Border(
+                                  bottom: BorderSide(color: Color(0xFFE2E4E9)),
+                                ),
                               ),
                               child: Row(
                                 children: [
                                   Container(
                                     width: 36,
                                     padding: const EdgeInsets.only(left: 12),
-                                    child: _StatefulCheckboxRow(label: '', value: false, onChanged: (v){}),
+                                    child: _StatefulCheckboxRow(
+                                      label: '',
+                                      value: false,
+                                      onChanged: (v) {},
+                                    ),
                                   ),
                                   ...[
                                     _ColDef(id: 'no', label: 'No.', flex: 1),
-                                    _ColDef(id: 'item', label: 'Código de Artículo', flex: 4),
-                                    _ColDef(id: 'required_by', label: 'Requerido Por', flex: 3),
-                                    _ColDef(id: 'qty', label: 'Cantidad', flex: 2),
-                                    _ColDef(id: 'warehouse', label: 'Bodega', flex: 3),
+                                    _ColDef(
+                                      id: 'item',
+                                      label: 'Código de Artículo',
+                                      flex: 4,
+                                    ),
+                                    _ColDef(
+                                      id: 'required_by',
+                                      label: 'Requerido Por',
+                                      flex: 3,
+                                    ),
+                                    _ColDef(
+                                      id: 'qty',
+                                      label: 'Cantidad',
+                                      flex: 2,
+                                    ),
+                                    _ColDef(
+                                      id: 'warehouse',
+                                      label: 'Bodega',
+                                      flex: 3,
+                                    ),
                                     _ColDef(id: 'uom', label: 'UDM', flex: 2),
-                                  ].map((c) => Expanded(flex: c.flex, child: _ReciboColHeader(col: c))),
+                                  ].map(
+                                    (c) => Expanded(
+                                      flex: c.flex,
+                                      child: _ReciboColHeader(col: c),
+                                    ),
+                                  ),
                                   const SizedBox(width: 40),
                                 ],
                               ),
@@ -7877,14 +7956,31 @@ class _SolicitudDetallesTabState extends State<_SolicitudDetallesTab> {
                                   Container(
                                     width: 36,
                                     padding: const EdgeInsets.only(left: 12),
-                                    child: _StatefulCheckboxRow(label: '', value: false, onChanged: (v){}),
+                                    child: _StatefulCheckboxRow(
+                                      label: '',
+                                      value: false,
+                                      onChanged: (v) {},
+                                    ),
                                   ),
-                                  const Expanded(flex: 1, child: Text('1', style: TextStyle(fontSize: 12.5, color: Color(0xFF1C2333)))),
+                                  const Expanded(
+                                    flex: 1,
+                                    child: Text(
+                                      '1',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        color: Color(0xFF1C2333),
+                                      ),
+                                    ),
+                                  ),
                                   Expanded(
                                     flex: 4,
                                     child: Container(
                                       decoration: const BoxDecoration(
-                                        border: Border(right: BorderSide(color: Color(0xFFE2E4E9))),
+                                        border: Border(
+                                          right: BorderSide(
+                                            color: Color(0xFFE2E4E9),
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -7892,40 +7988,65 @@ class _SolicitudDetallesTabState extends State<_SolicitudDetallesTab> {
                                     flex: 3,
                                     child: Container(
                                       decoration: const BoxDecoration(
-                                        border: Border(right: BorderSide(color: Color(0xFFE2E4E9))),
+                                        border: Border(
+                                          right: BorderSide(
+                                            color: Color(0xFFE2E4E9),
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
                                   Expanded(
                                     flex: 2,
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                      ),
                                       alignment: Alignment.centerLeft,
                                       decoration: const BoxDecoration(
-                                        border: Border(right: BorderSide(color: Color(0xFFE2E4E9))),
+                                        border: Border(
+                                          right: BorderSide(
+                                            color: Color(0xFFE2E4E9),
+                                          ),
+                                        ),
                                       ),
-                                      child: const Text('0,000', style: TextStyle(fontSize: 12.5, color: Color(0xFF1C2333))),
+                                      child: const Text(
+                                        '0,000',
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          color: Color(0xFF1C2333),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   Expanded(
                                     flex: 3,
                                     child: Container(
                                       decoration: const BoxDecoration(
-                                        border: Border(right: BorderSide(color: Color(0xFFE2E4E9))),
+                                        border: Border(
+                                          right: BorderSide(
+                                            color: Color(0xFFE2E4E9),
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Container(),
-                                  ),
+                                  Expanded(flex: 2, child: Container()),
                                   Container(
                                     width: 40,
                                     alignment: Alignment.center,
                                     decoration: const BoxDecoration(
-                                      border: Border(left: BorderSide(color: Color(0xFFE2E4E9))),
+                                      border: Border(
+                                        left: BorderSide(
+                                          color: Color(0xFFE2E4E9),
+                                        ),
+                                      ),
                                     ),
-                                    child: const Icon(Icons.edit_outlined, size: 14, color: Color(0xFF8A94A6)),
+                                    child: const Icon(
+                                      Icons.edit_outlined,
+                                      size: 14,
+                                      color: Color(0xFF8A94A6),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -7940,42 +8061,82 @@ class _SolicitudDetallesTabState extends State<_SolicitudDetallesTab> {
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF4F5F7), // _bodyBg
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Text('Agregar Fila', style: TextStyle(fontSize: 12, color: Color(0xFF1C2333), fontWeight: FontWeight.w500)),
+                                child: const Text(
+                                  'Agregar Fila',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF1C2333),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                               ),
                               const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF4F5F7), // _bodyBg
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Text('Agregar Múltiples', style: TextStyle(fontSize: 12, color: Color(0xFF1C2333), fontWeight: FontWeight.w500)),
+                                child: const Text(
+                                  'Agregar Múltiples',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF1C2333),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF4F5F7), // _bodyBg
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Text('Descargar', style: TextStyle(fontSize: 12, color: Color(0xFF1C2333), fontWeight: FontWeight.w500)),
+                                child: const Text(
+                                  'Descargar',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF1C2333),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                               ),
                               const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF4F5F7), // _bodyBg
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Text('Subir', style: TextStyle(fontSize: 12, color: Color(0xFF1C2333), fontWeight: FontWeight.w500)),
+                                child: const Text(
+                                  'Subir',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF1C2333),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -8023,7 +8184,9 @@ class _SolicitudMasInfoTabState extends State<_SolicitudMasInfoTab> {
                       Expanded(
                         child: _FormField(
                           label: 'Membrete',
-                          child: const _TextInputField(hint: 'Company Letterhead - Grey'),
+                          child: const _TextInputField(
+                            hint: 'Company Letterhead - Grey',
+                          ),
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -8037,6 +8200,2492 @@ class _SolicitudMasInfoTabState extends State<_SolicitudMasInfoTab> {
                   ),
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+//  VISOR DE INVENTARIO — DATA MODEL
+// ──────────────────────────────────────────────────────────────────────────────
+
+class _InventarioItem {
+  final String idCia;
+  final String idInstalacion;
+  final String idBodega;
+  final String descBodega;
+  final double cantExistencia;
+  final String ubicacionAux;
+  final double costoProm;
+  final double ultimoCosto;
+  final double cantPendienteEntrar;
+  final int rowid;
+  final String referencia;
+  final String descReferencia;
+  final String unidad;
+  final double cantTransito;
+  final double cantComprometida;
+  final String clasificacion;
+  final String instalacionId;
+
+  const _InventarioItem({
+    required this.idCia,
+    required this.idInstalacion,
+    required this.idBodega,
+    required this.descBodega,
+    required this.cantExistencia,
+    required this.ubicacionAux,
+    required this.costoProm,
+    required this.ultimoCosto,
+    required this.cantPendienteEntrar,
+    required this.rowid,
+    required this.referencia,
+    required this.descReferencia,
+    required this.unidad,
+    required this.cantTransito,
+    required this.cantComprometida,
+    required this.clasificacion,
+    required this.instalacionId,
+  });
+}
+
+const _kDemoInventario = [
+  _InventarioItem(
+    idCia: '1',
+    idInstalacion: '122',
+    idBodega: 'PV122',
+    descBodega: 'CELESTE MEDELLÍN',
+    cantExistencia: 0,
+    ubicacionAux: 'SU100101',
+    costoProm: 0,
+    ultimoCosto: 0,
+    cantPendienteEntrar: 0,
+    rowid: 4332,
+    referencia: '000000000024527185',
+    descReferencia: 'ABRAZ BARRA EST N300',
+    unidad: 'UNID',
+    cantTransito: 0,
+    cantComprometida: 0,
+    clasificacion: 'ZZ',
+    instalacionId: '122',
+  ),
+  _InventarioItem(
+    idCia: '1',
+    idInstalacion: '101',
+    idBodega: 'PV101',
+    descBodega: 'BODEGA BOGOTÁ PRINCIPAL',
+    cantExistencia: 45,
+    ubicacionAux: 'SU200301',
+    costoProm: 12500,
+    ultimoCosto: 13000,
+    cantPendienteEntrar: 10,
+    rowid: 1021,
+    referencia: '000000000024527185',
+    descReferencia: 'ABRAZ BARRA EST N300',
+    unidad: 'UNID',
+    cantTransito: 5,
+    cantComprometida: 8,
+    clasificacion: 'A',
+    instalacionId: '101',
+  ),
+  _InventarioItem(
+    idCia: '1',
+    idInstalacion: '105',
+    idBodega: 'PV105',
+    descBodega: 'CALI NORTE',
+    cantExistencia: 12,
+    ubicacionAux: 'SU300101',
+    costoProm: 12300,
+    ultimoCosto: 12800,
+    cantPendienteEntrar: 0,
+    rowid: 2041,
+    referencia: '000000000024527185',
+    descReferencia: 'ABRAZ BARRA EST N300',
+    unidad: 'UNID',
+    cantTransito: 0,
+    cantComprometida: 2,
+    clasificacion: 'AA',
+    instalacionId: '105',
+  ),
+  _InventarioItem(
+    idCia: '1',
+    idInstalacion: '108',
+    idBodega: 'PV108',
+    descBodega: 'BARRANQUILLA CENTRO',
+    cantExistencia: 3,
+    ubicacionAux: 'SU400201',
+    costoProm: 12100,
+    ultimoCosto: 12600,
+    cantPendienteEntrar: 20,
+    rowid: 3012,
+    referencia: '000000000024527185',
+    descReferencia: 'ABRAZ BARRA EST N300',
+    unidad: 'UNID',
+    cantTransito: 20,
+    cantComprometida: 1,
+    clasificacion: 'Z',
+    instalacionId: '108',
+  ),
+  _InventarioItem(
+    idCia: '1',
+    idInstalacion: '112',
+    idBodega: 'PV112',
+    descBodega: 'BUCARAMANGA',
+    cantExistencia: 0,
+    ubicacionAux: 'SU500101',
+    costoProm: 0,
+    ultimoCosto: 12600,
+    cantPendienteEntrar: 0,
+    rowid: 5001,
+    referencia: '000000000024527185',
+    descReferencia: 'ABRAZ BARRA EST N300',
+    unidad: 'UNID',
+    cantTransito: 0,
+    cantComprometida: 0,
+    clasificacion: 'ZZ',
+    instalacionId: '112',
+  ),
+];
+
+// ──────────────────────────────────────────────────────────────────────────────
+//  VISOR MÚLTIPLE DE INVENTARIO — LIST VIEW
+// ──────────────────────────────────────────────────────────────────────────────
+
+class _VisorInventarioListView extends StatefulWidget {
+  const _VisorInventarioListView();
+
+  @override
+  State<_VisorInventarioListView> createState() =>
+      _VisorInventarioListViewState();
+}
+
+class _VisorInventarioListViewState extends State<_VisorInventarioListView> {
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+  String _filterClasif = 'Todos';
+  bool _filterHover = false;
+
+  static const _clasifs = ['Todos', 'A', 'AA', 'Z', 'ZZ'];
+
+  List<_InventarioItem> get _filtered {
+    final q = _query.toLowerCase();
+    return _kDemoInventario.where((item) {
+      final matchQ =
+          q.isEmpty ||
+          item.referencia.contains(q) ||
+          item.descReferencia.toLowerCase().contains(q) ||
+          item.descBodega.toLowerCase().contains(q);
+      final matchC =
+          _filterClasif == 'Todos' || item.clasificacion == _filterClasif;
+      return matchQ && matchC;
+    }).toList();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _filtered;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _filterBar(),
+        _columnHeader(),
+        Expanded(child: rows.isEmpty ? _empty() : _list(rows)),
+        _footer(rows.length),
+      ],
+    );
+  }
+
+  Widget _filterBar() {
+    return Container(
+      height: 48,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: _sidebarBorder)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Row(
+        children: [
+          MouseRegion(
+            onEnter: (_) => setState(() => _filterHover = true),
+            onExit: (_) => setState(() => _filterHover = false),
+            cursor: SystemMouseCursors.click,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 130),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: _filterHover ? _bodyBg : Colors.white,
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(color: _sidebarBorder),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.filter_list_rounded, size: 13, color: _textMuted),
+                  SizedBox(width: 5),
+                  Text(
+                    'Filtrar',
+                    style: TextStyle(fontSize: 12, color: _textPrimary),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          for (final c in _clasifs) ...[
+            _ClasifChip(
+              label: c,
+              selected: _filterClasif == c,
+              onTap: () => setState(() => _filterClasif = c),
+            ),
+            const SizedBox(width: 4),
+          ],
+          const Spacer(),
+          _VisorSearchBox(
+            ctrl: _searchCtrl,
+            onChanged: (v) => setState(() => _query = v),
+          ),
+          const SizedBox(width: 12),
+          const Icon(Icons.sort_rounded, size: 14, color: _textMuted),
+          const SizedBox(width: 4),
+          const Text(
+            'Bodega',
+            style: TextStyle(fontSize: 12, color: _textPrimary),
+          ),
+          const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 14,
+            color: _textMuted,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _columnHeader() {
+    return Container(
+      height: 36,
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8F9FA),
+        border: Border(bottom: BorderSide(color: _sidebarBorder)),
+      ),
+      child: const Row(
+        children: [
+          SizedBox(
+            width: 44,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 14),
+              child: _ColumnCheckbox(),
+            ),
+          ),
+          Expanded(flex: 3, child: _VColH('Bodega')),
+          Expanded(flex: 3, child: _VColH('Referencia')),
+          Expanded(flex: 4, child: _VColH('Descripción')),
+          Expanded(flex: 2, child: _VColH('Existencia')),
+          Expanded(flex: 2, child: _VColH('En Tránsito')),
+          Expanded(flex: 2, child: _VColH('Comprometido')),
+          Expanded(flex: 2, child: _VColH('Pend. Entrada')),
+          Expanded(flex: 2, child: _VColH('Clasificación')),
+        ],
+      ),
+    );
+  }
+
+  Widget _list(List<_InventarioItem> rows) => ColoredBox(
+    color: Colors.white,
+    child: ListView.builder(
+      itemCount: rows.length,
+      itemBuilder: (ctx, i) => _InventarioRow(item: rows[i]),
+    ),
+  );
+
+  Widget _empty() => const ColoredBox(
+    color: Colors.white,
+    child: Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.table_chart_outlined, size: 52, color: Color(0xFFCDD2DA)),
+          SizedBox(height: 18),
+          Text(
+            'No se encontraron registros de inventario',
+            style: TextStyle(fontSize: 13.5, color: _textMuted),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Sincronice con la API para obtener datos actualizados',
+            style: TextStyle(fontSize: 12, color: _textMuted),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _footer(int count) => Container(
+    height: 36,
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    decoration: const BoxDecoration(
+      color: Colors.white,
+      border: Border(top: BorderSide(color: _sidebarBorder)),
+    ),
+    child: Row(
+      children: [
+        Text(
+          '$count ${count == 1 ? "registro" : "registros"}',
+          style: const TextStyle(fontSize: 11.5, color: _textMuted),
+        ),
+        const Spacer(),
+        const Text(
+          'Página 1 de 1',
+          style: TextStyle(fontSize: 11.5, color: _textMuted),
+        ),
+      ],
+    ),
+  );
+}
+
+// ── Inventory row ─────────────────────────────────────────────────────────────
+
+class _InventarioRow extends StatefulWidget {
+  final _InventarioItem item;
+  const _InventarioRow({required this.item});
+
+  @override
+  State<_InventarioRow> createState() => _InventarioRowState();
+}
+
+class _InventarioRowState extends State<_InventarioRow> {
+  bool _hovered = false;
+
+  static Color _clasifColor(String c) {
+    switch (c) {
+      case 'A':
+        return const Color(0xFF2BAE7E);
+      case 'AA':
+        return const Color(0xFF458AC9);
+      case 'Z':
+        return const Color(0xFFE67E22);
+      case 'ZZ':
+        return const Color(0xFFE53935);
+      default:
+        return _textMuted;
+    }
+  }
+
+  static String _fmt(double v) =>
+      v == 0 ? '—' : v.toStringAsFixed(v.truncateToDouble() == v ? 0 : 2);
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    final cc = _clasifColor(item.clasificacion);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        color: _hovered ? const Color(0xFFF5F8FC) : Colors.white,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                const SizedBox(
+                  width: 44,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 14),
+                    child: _ColumnCheckbox(),
+                  ),
+                ),
+                // Bodega
+                Expanded(
+                  flex: 3,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.descBodega,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: _textPrimary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          '${item.idBodega} · Inst. ${item.idInstalacion}',
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            color: _textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Referencia
+                Expanded(
+                  flex: 3,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Text(
+                      item.referencia,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: _blue,
+                        fontFamily: 'monospace',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                // Descripción
+                Expanded(
+                  flex: 4,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Text(
+                      item.descReferencia,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: _textPrimary,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: _VNum(
+                    value: _fmt(item.cantExistencia),
+                    unit: item.unidad,
+                  ),
+                ),
+                Expanded(flex: 2, child: _VNum(value: _fmt(item.cantTransito))),
+                Expanded(
+                  flex: 2,
+                  child: _VNum(value: _fmt(item.cantComprometida)),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: _VNum(value: _fmt(item.cantPendienteEntrar)),
+                ),
+                // Clasificación badge
+                Expanded(
+                  flex: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: cc.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: cc.withOpacity(0.35),
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          item.clasificacion,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: cc,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 1, color: _sidebarBorder),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Micro-helpers ─────────────────────────────────────────────────────────────
+
+class _VNum extends StatelessWidget {
+  final String value;
+  final String? unit;
+  const _VNum({required this.value, this.unit});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12.5,
+            color: value == '—' ? _textMuted : _textPrimary,
+            fontWeight: value == '—' ? FontWeight.w400 : FontWeight.w500,
+          ),
+        ),
+        if (unit != null)
+          Text(unit!, style: const TextStyle(fontSize: 10, color: _textMuted)),
+      ],
+    ),
+  );
+}
+
+class _VColH extends StatelessWidget {
+  final String label;
+  const _VColH(this.label);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+    child: Text(
+      label,
+      style: const TextStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w500,
+        color: _textMuted,
+        letterSpacing: 0.1,
+      ),
+      overflow: TextOverflow.ellipsis,
+    ),
+  );
+}
+
+class _ClasifChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _ClasifChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  static Color _color(String c) {
+    switch (c) {
+      case 'A':
+        return const Color(0xFF2BAE7E);
+      case 'AA':
+        return const Color(0xFF458AC9);
+      case 'Z':
+        return const Color(0xFFE67E22);
+      case 'ZZ':
+        return const Color(0xFFE53935);
+      default:
+        return _textMuted;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cc = _color(label);
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: selected ? cc.withOpacity(0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: selected ? cc.withOpacity(0.5) : _sidebarBorder,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+            color: selected ? cc : _textMuted,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VisorSearchBox extends StatelessWidget {
+  final TextEditingController ctrl;
+  final ValueChanged<String> onChanged;
+  const _VisorSearchBox({required this.ctrl, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 240,
+    height: 30,
+    child: TextField(
+      controller: ctrl,
+      onChanged: onChanged,
+      style: const TextStyle(fontSize: 12.5, color: _textPrimary),
+      decoration: InputDecoration(
+        hintText: 'Buscar referencia o bodega…',
+        hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
+        prefixIcon: const Icon(
+          Icons.search_rounded,
+          size: 15,
+          color: _textMuted,
+        ),
+        prefixIconConstraints: const BoxConstraints(
+          minWidth: 32,
+          minHeight: 30,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(5),
+          borderSide: const BorderSide(color: _sidebarBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(5),
+          borderSide: const BorderSide(color: _sidebarBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(5),
+          borderSide: BorderSide(color: _blue.withOpacity(0.5)),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+        isDense: true,
+        filled: true,
+        fillColor: _bodyBg,
+      ),
+    ),
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  MOTOR DE ALERTAS — DATA MODELS
+// ══════════════════════════════════════════════════════════════════════════════
+
+enum _ReglaTipo { diasInventario, stockAltoRotBaja, difCiudades }
+
+enum _AccionSugerida { descuento, traslado, priorizar }
+
+class _Regla {
+  final String id;
+  final String nombre;
+  final _ReglaTipo tipo;
+  final double umbral;
+  final _AccionSugerida accion;
+  final double valorAccion;
+  final bool activa;
+
+  _Regla({
+    required this.id,
+    required this.nombre,
+    required this.tipo,
+    required this.umbral,
+    required this.accion,
+    required this.valorAccion,
+    this.activa = true,
+  });
+
+  _Regla copyWith({
+    String? nombre,
+    _ReglaTipo? tipo,
+    double? umbral,
+    _AccionSugerida? accion,
+    double? valorAccion,
+    bool? activa,
+  }) => _Regla(
+    id: id,
+    nombre: nombre ?? this.nombre,
+    tipo: tipo ?? this.tipo,
+    umbral: umbral ?? this.umbral,
+    accion: accion ?? this.accion,
+    valorAccion: valorAccion ?? this.valorAccion,
+    activa: activa ?? this.activa,
+  );
+}
+
+List<_Regla> _reglasState = [
+  _Regla(
+    id: 'r1',
+    nombre: 'Inventario estancado > 90 días',
+    tipo: _ReglaTipo.diasInventario,
+    umbral: 90,
+    accion: _AccionSugerida.descuento,
+    valorAccion: 15,
+    activa: true,
+  ),
+  _Regla(
+    id: 'r2',
+    nombre: 'Stock alto con baja rotación (ZZ)',
+    tipo: _ReglaTipo.stockAltoRotBaja,
+    umbral: 50,
+    accion: _AccionSugerida.traslado,
+    valorAccion: 20,
+    activa: true,
+  ),
+  _Regla(
+    id: 'r3',
+    nombre: 'Diferencia de inventario entre ciudades',
+    tipo: _ReglaTipo.difCiudades,
+    umbral: 30,
+    accion: _AccionSugerida.traslado,
+    valorAccion: 10,
+    activa: false,
+  ),
+];
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  PANEL PRINCIPAL
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _ReglasNegocioPanel extends StatefulWidget {
+  const _ReglasNegocioPanel();
+
+  @override
+  State<_ReglasNegocioPanel> createState() => _ReglasNegocioPanelState();
+}
+
+class _ReglasNegocioPanelState extends State<_ReglasNegocioPanel> {
+  late List<_Regla> _reglas;
+  _Regla? _editando;
+  bool _creandoNueva = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _reglas = List.from(_reglasState);
+  }
+
+  void _guardar(_Regla r) {
+    setState(() {
+      final idx = _reglas.indexWhere((x) => x.id == r.id);
+      if (idx >= 0) {
+        _reglas[idx] = r;
+      } else {
+        _reglas.add(r);
+      }
+      _reglasState = _reglas;
+      _editando = null;
+      _creandoNueva = false;
+    });
+  }
+
+  void _eliminar(String id) {
+    setState(() {
+      _reglas.removeWhere((r) => r.id == id);
+      _reglasState = _reglas;
+      if (_editando?.id == id) _editando = null;
+    });
+  }
+
+  void _toggleActiva(String id) {
+    setState(() {
+      final idx = _reglas.indexWhere((r) => r.id == id);
+      if (idx >= 0) {
+        _reglas[idx] = _reglas[idx].copyWith(activa: !_reglas[idx].activa);
+      }
+      _reglasState = _reglas;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: _bodyBg,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Left: list + editor
+          Expanded(
+            flex: 6,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: _blue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: const Icon(
+                          Icons.rule_rounded,
+                          color: _blue,
+                          size: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Panel de Administración de Reglas',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: _textPrimary,
+                            ),
+                          ),
+                          Text(
+                            'Configura las reglas que activan alertas y sugerencias automáticas',
+                            style: TextStyle(fontSize: 11.5, color: _textMuted),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      _PrimaryButton(
+                        label: '+ Nueva Regla',
+                        onTap: () => setState(() {
+                          _creandoNueva = true;
+                          _editando = _Regla(
+                            id: 'r${DateTime.now().millisecondsSinceEpoch}',
+                            nombre: '',
+                            tipo: _ReglaTipo.diasInventario,
+                            umbral: 90,
+                            accion: _AccionSugerida.descuento,
+                            valorAccion: 10,
+                          );
+                        }),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Rules list ──────────────────────────────────────────────
+                  ..._reglas.map(
+                    (r) => _ReglaCard(
+                      regla: r,
+                      isEditing: _editando?.id == r.id,
+                      onEdit: () => setState(() => _editando = r.copyWith()),
+                      onToggle: () => _toggleActiva(r.id),
+                      onDelete: () => _eliminar(r.id),
+                      onCancelEdit: () => setState(() => _editando = null),
+                      onSave: _guardar,
+                    ),
+                  ),
+
+                  // New rule form ───────────────────────────────────────────
+                  if (_creandoNueva && _editando != null)
+                    _ReglaEditorCard(
+                      regla: _editando!,
+                      isNew: true,
+                      onSave: _guardar,
+                      onCancel: () => setState(() {
+                        _editando = null;
+                        _creandoNueva = false;
+                      }),
+                    ),
+
+                  if (_reglas.isEmpty && !_creandoNueva)
+                    Container(
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: _sidebarBorder),
+                      ),
+                      child: Center(
+                        child: Column(
+                          children: const [
+                            Icon(
+                              Icons.rule_folder_outlined,
+                              size: 40,
+                              color: _textMuted,
+                            ),
+                            SizedBox(height: 12),
+                            Text(
+                              'No hay reglas configuradas',
+                              style: TextStyle(fontSize: 13, color: _textMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+
+          // Right: alerts preview ───────────────────────────────────────────
+          Container(
+            width: 270,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(left: BorderSide(color: _sidebarBorder)),
+            ),
+            child: _AlertasPreview(reglas: _reglas),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Rule card (read mode + inline editor) ─────────────────────────────────────
+
+class _ReglaCard extends StatelessWidget {
+  final _Regla regla;
+  final bool isEditing;
+  final VoidCallback onEdit;
+  final VoidCallback onToggle;
+  final VoidCallback onDelete;
+  final VoidCallback onCancelEdit;
+  final void Function(_Regla) onSave;
+
+  const _ReglaCard({
+    required this.regla,
+    required this.isEditing,
+    required this.onEdit,
+    required this.onToggle,
+    required this.onDelete,
+    required this.onCancelEdit,
+    required this.onSave,
+  });
+
+  Color get _tipoColor {
+    switch (regla.tipo) {
+      case _ReglaTipo.diasInventario:
+        return const Color(0xFF7B5FF5);
+      case _ReglaTipo.stockAltoRotBaja:
+        return const Color(0xFFE67E22);
+      case _ReglaTipo.difCiudades:
+        return const Color(0xFF458AC9);
+    }
+  }
+
+  String get _tipoLabel {
+    switch (regla.tipo) {
+      case _ReglaTipo.diasInventario:
+        return 'Días en inventario';
+      case _ReglaTipo.stockAltoRotBaja:
+        return 'Stock alto + baja rotación';
+      case _ReglaTipo.difCiudades:
+        return 'Diferencia entre ciudades';
+    }
+  }
+
+  String get _accionLabel {
+    switch (regla.accion) {
+      case _AccionSugerida.descuento:
+        return '${regla.valorAccion.toInt()}% descuento';
+      case _AccionSugerida.traslado:
+        return 'Trasladar ${regla.valorAccion.toInt()} uds';
+      case _AccionSugerida.priorizar:
+        return 'Priorizar venta';
+    }
+  }
+
+  IconData get _accionIcon {
+    switch (regla.accion) {
+      case _AccionSugerida.descuento:
+        return Icons.local_offer_rounded;
+      case _AccionSugerida.traslado:
+        return Icons.swap_horiz_rounded;
+      case _AccionSugerida.priorizar:
+        return Icons.star_rounded;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isEditing) {
+      return _ReglaEditorCard(
+        regla: regla,
+        isNew: false,
+        onSave: onSave,
+        onCancel: onCancelEdit,
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: regla.activa ? _tipoColor.withOpacity(0.3) : _sidebarBorder,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Type pill
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: _tipoColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(
+                  color: _tipoColor.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                _tipoLabel,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: _tipoColor,
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+
+            // Body
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    regla.nombre,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: regla.activa ? _textPrimary : _textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      _RChip(
+                        icon: Icons.timer_outlined,
+                        label: 'Umbral: ${regla.umbral.toInt()}',
+                        color: _textMuted,
+                      ),
+                      const SizedBox(width: 8),
+                      _RChip(
+                        icon: _accionIcon,
+                        label: _accionLabel,
+                        color: const Color(0xFF2BAE7E),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Controls
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _IAToggle(value: regla.activa, onChanged: (_) => onToggle()),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    _HoverIcon(
+                      icon: Icons.edit_rounded,
+                      size: 16,
+                      onTap: onEdit,
+                    ),
+                    const SizedBox(width: 2),
+                    _HoverIcon(
+                      icon: Icons.delete_outline_rounded,
+                      size: 16,
+                      onTap: onDelete,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Rule editor form ──────────────────────────────────────────────────────────
+
+class _ReglaEditorCard extends StatefulWidget {
+  final _Regla regla;
+  final bool isNew;
+  final void Function(_Regla) onSave;
+  final VoidCallback onCancel;
+
+  const _ReglaEditorCard({
+    required this.regla,
+    required this.isNew,
+    required this.onSave,
+    required this.onCancel,
+  });
+
+  @override
+  State<_ReglaEditorCard> createState() => _ReglaEditorCardState();
+}
+
+class _ReglaEditorCardState extends State<_ReglaEditorCard> {
+  late final TextEditingController _nombreCtrl;
+  late final TextEditingController _umbralCtrl;
+  late final TextEditingController _valorCtrl;
+  late _ReglaTipo _tipo;
+  late _AccionSugerida _accion;
+
+  @override
+  void initState() {
+    super.initState();
+    _nombreCtrl = TextEditingController(text: widget.regla.nombre);
+    _umbralCtrl = TextEditingController(
+      text: widget.regla.umbral.toInt().toString(),
+    );
+    _valorCtrl = TextEditingController(
+      text: widget.regla.valorAccion.toInt().toString(),
+    );
+    _tipo = widget.regla.tipo;
+    _accion = widget.regla.accion;
+  }
+
+  @override
+  void dispose() {
+    _nombreCtrl.dispose();
+    _umbralCtrl.dispose();
+    _valorCtrl.dispose();
+    super.dispose();
+  }
+
+  String get _umbralSuffix {
+    switch (_tipo) {
+      case _ReglaTipo.diasInventario:
+        return 'días';
+      case _ReglaTipo.stockAltoRotBaja:
+        return 'unidades';
+      case _ReglaTipo.difCiudades:
+        return '% diferencia';
+    }
+  }
+
+  String get _accionSuffix {
+    switch (_accion) {
+      case _AccionSugerida.descuento:
+        return '% de descuento';
+      case _AccionSugerida.traslado:
+        return 'unidades a trasladar';
+      case _AccionSugerida.priorizar:
+        return '(sin valor adicional)';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _blue.withOpacity(0.4)),
+        boxShadow: [
+          BoxShadow(
+            color: _blue.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  widget.isNew ? 'Nueva Regla' : 'Editar Regla',
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: _textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                _HoverIcon(
+                  icon: Icons.close_rounded,
+                  size: 16,
+                  onTap: widget.onCancel,
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            const Divider(color: _sidebarBorder, height: 1),
+            const SizedBox(height: 14),
+
+            // Nombre
+            _FormField(
+              label: 'Nombre de la regla',
+              required: true,
+              child: _RTextField(
+                ctrl: _nombreCtrl,
+                hint: 'Ej. Stock inmovilizado Bogotá',
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _FormField(
+                    label: 'Tipo de condición',
+                    required: true,
+                    child: _RDropdown<_ReglaTipo>(
+                      value: _tipo,
+                      items: const {
+                        _ReglaTipo.diasInventario: 'Inventario > X días',
+                        _ReglaTipo.stockAltoRotBaja:
+                            'Stock alto + baja rotación',
+                        _ReglaTipo.difCiudades: 'Diferencia entre ciudades',
+                      },
+                      onChanged: (v) => setState(() => _tipo = v),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                SizedBox(
+                  width: 150,
+                  child: _FormField(
+                    label: 'Umbral ($_umbralSuffix)',
+                    required: true,
+                    child: _RTextField(
+                      ctrl: _umbralCtrl,
+                      hint: '90',
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Acción separator
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  const Text(
+                    'Sugerencia automática',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: _textMuted,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Divider(color: _sidebarBorder, height: 1),
+                  ),
+                ],
+              ),
+            ),
+
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _FormField(
+                    label: 'Acción sugerida',
+                    required: true,
+                    child: _RDropdown<_AccionSugerida>(
+                      value: _accion,
+                      items: const {
+                        _AccionSugerida.descuento: '💰 Aplicar descuento',
+                        _AccionSugerida.traslado: '🚚 Trasladar producto',
+                        _AccionSugerida.priorizar: '⭐ Priorizar venta',
+                      },
+                      onChanged: (v) => setState(() => _accion = v),
+                    ),
+                  ),
+                ),
+                if (_accion != _AccionSugerida.priorizar) ...[
+                  const SizedBox(width: 14),
+                  SizedBox(
+                    width: 150,
+                    child: _FormField(
+                      label: 'Valor ($_accionSuffix)',
+                      child: _RTextField(
+                        ctrl: _valorCtrl,
+                        hint: '10',
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 18),
+
+            // Buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                GestureDetector(
+                  onTap: widget.onCancel,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _bodyBg,
+                      borderRadius: BorderRadius.circular(5),
+                      border: Border.all(color: _sidebarBorder),
+                    ),
+                    child: const Text(
+                      'Cancelar',
+                      style: TextStyle(fontSize: 12.5, color: _textPrimary),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                GestureDetector(
+                  onTap: () {
+                    final nombre = _nombreCtrl.text.trim();
+                    if (nombre.isEmpty) return;
+                    widget.onSave(
+                      widget.regla.copyWith(
+                        nombre: nombre,
+                        tipo: _tipo,
+                        umbral: double.tryParse(_umbralCtrl.text) ?? 90,
+                        accion: _accion,
+                        valorAccion: double.tryParse(_valorCtrl.text) ?? 10,
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _darkBlue,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: const Text(
+                      'Guardar',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Right panel: alerts preview ───────────────────────────────────────────────
+
+class _AlertasPreview extends StatelessWidget {
+  final List<_Regla> reglas;
+  const _AlertasPreview({required this.reglas});
+
+  @override
+  Widget build(BuildContext context) {
+    final activas = reglas.where((r) => r.activa).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Header
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: _sidebarBorder)),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.notifications_active_rounded,
+                size: 15,
+                color: _blue,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Alertas Activas',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: _textPrimary,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: activas.isEmpty ? _bodyBg : _blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${activas.length}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: activas.isEmpty ? _textMuted : _blue,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // List
+        Expanded(
+          child: activas.isEmpty
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.check_circle_outline_rounded,
+                        size: 36,
+                        color: Color(0xFF2BAE7E),
+                      ),
+                      SizedBox(height: 10),
+                      Text(
+                        'Sin alertas activas',
+                        style: TextStyle(fontSize: 12, color: _textMuted),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: activas.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (ctx, i) => _AlertaCard(regla: activas[i]),
+                ),
+        ),
+
+        // Footer tip
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: _sidebarBorder)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.info_outline_rounded, size: 13, color: _textMuted),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Las alertas se evalúan al sincronizar con la API.',
+                  style: TextStyle(fontSize: 10.5, color: _textMuted),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AlertaCard extends StatelessWidget {
+  final _Regla regla;
+  const _AlertaCard({required this.regla});
+
+  Color get _color {
+    switch (regla.tipo) {
+      case _ReglaTipo.diasInventario:
+        return const Color(0xFF7B5FF5);
+      case _ReglaTipo.stockAltoRotBaja:
+        return const Color(0xFFE67E22);
+      case _ReglaTipo.difCiudades:
+        return const Color(0xFF458AC9);
+    }
+  }
+
+  IconData get _icon {
+    switch (regla.accion) {
+      case _AccionSugerida.descuento:
+        return Icons.local_offer_rounded;
+      case _AccionSugerida.traslado:
+        return Icons.swap_horiz_rounded;
+      case _AccionSugerida.priorizar:
+        return Icons.star_rounded;
+    }
+  }
+
+  String get _accionText {
+    switch (regla.accion) {
+      case _AccionSugerida.descuento:
+        return 'Aplicar ${regla.valorAccion.toInt()}% descuento';
+      case _AccionSugerida.traslado:
+        return 'Trasladar ${regla.valorAccion.toInt()} uds';
+      case _AccionSugerida.priorizar:
+        return 'Priorizar venta';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: _color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: _color.withOpacity(0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: _color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Icon(_icon, size: 14, color: _color),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  regla.nombre,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: _textPrimary,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _accionText,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: _color,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Editor form helpers ───────────────────────────────────────────────────────
+
+class _RTextField extends StatelessWidget {
+  final TextEditingController ctrl;
+  final String hint;
+  final TextInputType keyboardType;
+
+  const _RTextField({
+    required this.ctrl,
+    required this.hint,
+    this.keyboardType = TextInputType.text,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 34,
+    decoration: BoxDecoration(
+      color: _bodyBg,
+      borderRadius: BorderRadius.circular(5),
+      border: Border.all(color: _sidebarBorder),
+    ),
+    child: TextField(
+      controller: ctrl,
+      keyboardType: keyboardType,
+      style: const TextStyle(fontSize: 12.5, color: _textPrimary),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(fontSize: 12.5, color: _textMuted),
+        border: InputBorder.none,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        isDense: true,
+      ),
+    ),
+  );
+}
+
+class _RDropdown<T> extends StatelessWidget {
+  final T value;
+  final Map<T, String> items;
+  final void Function(T) onChanged;
+
+  const _RDropdown({
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 34,
+    padding: const EdgeInsets.symmetric(horizontal: 10),
+    decoration: BoxDecoration(
+      color: _bodyBg,
+      borderRadius: BorderRadius.circular(5),
+      border: Border.all(color: _sidebarBorder),
+    ),
+    child: DropdownButtonHideUnderline(
+      child: DropdownButton<T>(
+        value: value,
+        isExpanded: true,
+        icon: const Icon(
+          Icons.keyboard_arrow_down_rounded,
+          size: 16,
+          color: _textMuted,
+        ),
+        style: const TextStyle(fontSize: 12.5, color: _textPrimary),
+        items: items.entries
+            .map(
+              (e) => DropdownMenuItem<T>(
+                value: e.key,
+                child: Text(
+                  e.value,
+                  style: const TextStyle(fontSize: 12.5, color: _textPrimary),
+                ),
+              ),
+            )
+            .toList(),
+        onChanged: (v) {
+          if (v != null) onChanged(v);
+        },
+      ),
+    ),
+  );
+}
+
+class _RChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _RChip({required this.icon, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(4),
+      border: Border.all(color: color.withOpacity(0.25)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: color),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: color,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _IAToggle extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _IAToggle({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: () => onChanged(!value),
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: 36,
+      height: 20,
+      decoration: BoxDecoration(
+        color: value ? _blue : const Color(0xFFCDD2DA),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: AnimatedAlign(
+        duration: const Duration(milliseconds: 200),
+        alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          width: 16,
+          height: 16,
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  SMART DASHBOARD — Punto 3
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _SmartDashboard extends StatelessWidget {
+  const _SmartDashboard();
+
+  // --------------------------------------------------------------------------
+  // Derive action cards from active rules + demo inventory
+  // --------------------------------------------------------------------------
+  List<_ActionCard> _buildActions() {
+    final actions = <_ActionCard>[];
+    final activeRules = _reglasState.where((r) => r.activa).toList();
+
+    for (final rule in activeRules) {
+      // Find inventory items that match this rule type
+      final relevant = _kDemoInventario.where((item) {
+        switch (rule.tipo) {
+          case _ReglaTipo.diasInventario:
+            return item.cantExistencia == 0 && item.clasificacion == 'ZZ';
+          case _ReglaTipo.stockAltoRotBaja:
+            return item.cantExistencia >= rule.umbral ||
+                item.clasificacion == 'ZZ';
+          case _ReglaTipo.difCiudades:
+            return item.cantTransito > 0;
+        }
+      }).toList();
+
+      for (final item in relevant) {
+        actions.add(_ActionCard(regla: rule, item: item));
+      }
+    }
+    return actions;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final actions = _buildActions();
+    return Container(
+      color: _bodyBg,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ────────────────────────────────────────────────────
+            Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF7B5FF5), Color(0xFF458AC9)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.insights_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Smart Insights',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: _textPrimary,
+                      ),
+                    ),
+                    Text(
+                      'Sugerencias y alertas inteligentes basadas en tus reglas de negocio',
+                      style: TextStyle(fontSize: 12, color: _textMuted),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // ── KPI Strip ─────────────────────────────────────────────────
+            _KpiStrip(actions: actions),
+            const SizedBox(height: 24),
+
+            // ── Two-column layout ──────────────────────────────────────────
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Left: action suggestions
+                Expanded(
+                  flex: 6,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _SectionHeader(
+                        icon: Icons.auto_fix_high_rounded,
+                        title: 'Sugerencias Inteligentes',
+                        badge: '${actions.length}',
+                        badgeColor: const Color(0xFF7B5FF5),
+                      ),
+                      const SizedBox(height: 12),
+                      if (actions.isEmpty)
+                        _EmptyActionState()
+                      else
+                        ...actions.map((a) => _ActionCardTile(card: a)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 20),
+
+                // Right: warehouse heat-map
+                Expanded(
+                  flex: 4,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const _SectionHeader(
+                        icon: Icons.map_outlined,
+                        title: 'Mapa de Bodegas',
+                        badge: '5',
+                        badgeColor: Color(0xFF2BAE7E),
+                      ),
+                      const SizedBox(height: 12),
+                      _WarehouseHeatmap(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── KPI Strip ─────────────────────────────────────────────────────────────────
+
+class _KpiStrip extends StatelessWidget {
+  final List<_ActionCard> actions;
+  const _KpiStrip({required this.actions});
+
+  @override
+  Widget build(BuildContext context) {
+    final totalBodegas = _kDemoInventario.length;
+    final sinStock = _kDemoInventario
+        .where((i) => i.cantExistencia == 0)
+        .length;
+    final clasifZZ = _kDemoInventario
+        .where((i) => i.clasificacion == 'ZZ')
+        .length;
+    final activeRules = _reglasState.where((r) => r.activa).length;
+
+    return Row(
+      children: [
+        _Kpi(
+          label: 'Bodegas monitoreadas',
+          value: '$totalBodegas',
+          icon: Icons.warehouse_rounded,
+          color: _blue,
+        ),
+        const SizedBox(width: 14),
+        _Kpi(
+          label: 'Sin existencias',
+          value: '$sinStock',
+          icon: Icons.inventory_2_outlined,
+          color: const Color(0xFFE67E22),
+        ),
+        const SizedBox(width: 14),
+        _Kpi(
+          label: 'Clasif. crítica (ZZ)',
+          value: '$clasifZZ',
+          icon: Icons.warning_amber_rounded,
+          color: const Color(0xFFE53935),
+        ),
+        const SizedBox(width: 14),
+        _Kpi(
+          label: 'Reglas activas',
+          value: '$activeRules',
+          icon: Icons.rule_rounded,
+          color: const Color(0xFF7B5FF5),
+        ),
+        const SizedBox(width: 14),
+        _Kpi(
+          label: 'Sugerencias generadas',
+          value: '${actions.length}',
+          icon: Icons.auto_fix_high_rounded,
+          color: const Color(0xFF2BAE7E),
+        ),
+      ],
+    );
+  }
+}
+
+class _Kpi extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _Kpi({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _sidebarBorder),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
+                  ),
+                  Text(
+                    label,
+                    style: const TextStyle(fontSize: 10.5, color: _textMuted),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Section header ─────────────────────────────────────────────────────────────
+
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String badge;
+  final Color badgeColor;
+
+  const _SectionHeader({
+    required this.icon,
+    required this.title,
+    required this.badge,
+    required this.badgeColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: badgeColor),
+        const SizedBox(width: 7),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w700,
+            color: _textPrimary,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+          decoration: BoxDecoration(
+            color: badgeColor.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            badge,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: badgeColor,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Action card model ─────────────────────────────────────────────────────────
+
+class _ActionCard {
+  final _Regla regla;
+  final _InventarioItem item;
+  const _ActionCard({required this.regla, required this.item});
+}
+
+// ── Action card tile ──────────────────────────────────────────────────────────
+
+class _ActionCardTile extends StatefulWidget {
+  final _ActionCard card;
+  const _ActionCardTile({required this.card});
+
+  @override
+  State<_ActionCardTile> createState() => _ActionCardTileState();
+}
+
+class _ActionCardTileState extends State<_ActionCardTile> {
+  bool _hovered = false;
+  bool _done = false;
+
+  Color get _accentColor {
+    switch (widget.card.regla.accion) {
+      case _AccionSugerida.descuento:
+        return const Color(0xFF2BAE7E);
+      case _AccionSugerida.traslado:
+        return const Color(0xFF458AC9);
+      case _AccionSugerida.priorizar:
+        return const Color(0xFF7B5FF5);
+    }
+  }
+
+  IconData get _accentIcon {
+    switch (widget.card.regla.accion) {
+      case _AccionSugerida.descuento:
+        return Icons.local_offer_rounded;
+      case _AccionSugerida.traslado:
+        return Icons.swap_horiz_rounded;
+      case _AccionSugerida.priorizar:
+        return Icons.star_rounded;
+    }
+  }
+
+  String get _accionText {
+    switch (widget.card.regla.accion) {
+      case _AccionSugerida.descuento:
+        return 'Aplicar ${widget.card.regla.valorAccion.toInt()}% de descuento';
+      case _AccionSugerida.traslado:
+        return 'Trasladar ${widget.card.regla.valorAccion.toInt()} unidades';
+      case _AccionSugerida.priorizar:
+        return 'Priorizar en ventas';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.card.item;
+    final regla = widget.card.regla;
+
+    return AnimatedOpacity(
+      opacity: _done ? 0.4 : 1.0,
+      duration: const Duration(milliseconds: 300),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: _hovered ? _accentColor.withOpacity(0.04) : Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: _hovered ? _accentColor.withOpacity(0.35) : _sidebarBorder,
+            ),
+            boxShadow: _hovered
+                ? [
+                    BoxShadow(
+                      color: _accentColor.withOpacity(0.12),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Icon
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: _accentColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(_accentIcon, color: _accentColor, size: 17),
+                ),
+                const SizedBox(width: 12),
+
+                // Content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Rule name
+                      Text(
+                        regla.nombre,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      // Product
+                      Text(
+                        item.descReferencia,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: _textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      // Tags row
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          _SmTag(
+                            text: item.descBodega,
+                            color: _textMuted,
+                            icon: Icons.warehouse_rounded,
+                          ),
+                          _SmTag(
+                            text:
+                                'Exist: ${item.cantExistencia.toInt()} ${item.unidad}',
+                            color: item.cantExistencia == 0
+                                ? const Color(0xFFE53935)
+                                : _textMuted,
+                            icon: Icons.inventory_2_outlined,
+                          ),
+                          _SmTag(
+                            text: 'Clasif: ${item.clasificacion}',
+                            color:
+                                item.clasificacion == 'ZZ' ||
+                                    item.clasificacion == 'Z'
+                                ? const Color(0xFFE67E22)
+                                : const Color(0xFF2BAE7E),
+                            icon: Icons.label_rounded,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // Action button
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    GestureDetector(
+                      onTap: () => setState(() => _done = !_done),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _done ? _bodyBg : _accentColor,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: _done ? _sidebarBorder : _accentColor,
+                          ),
+                        ),
+                        child: Text(
+                          _done ? 'Deshacer' : _accionText,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: _done ? _textMuted : Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (_done)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '✓ Aplicado',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: const Color(0xFF2BAE7E),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SmTag extends StatelessWidget {
+  final String text;
+  final Color color;
+  final IconData icon;
+
+  const _SmTag({required this.text, required this.color, required this.icon});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(4),
+      border: Border.all(color: color.withOpacity(0.2)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 10, color: color),
+        const SizedBox(width: 3),
+        Text(text, style: TextStyle(fontSize: 10.5, color: color)),
+      ],
+    ),
+  );
+}
+
+class _EmptyActionState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(32),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: _sidebarBorder),
+    ),
+    child: const Center(
+      child: Column(
+        children: [
+          Icon(
+            Icons.check_circle_outline_rounded,
+            size: 44,
+            color: Color(0xFF2BAE7E),
+          ),
+          SizedBox(height: 14),
+          Text(
+            'Sin sugerencias pendientes',
+            style: TextStyle(fontSize: 13.5, color: _textMuted),
+          ),
+          SizedBox(height: 6),
+          Text(
+            'Activa reglas en "Reglas de Negocio" para generar alertas',
+            style: TextStyle(fontSize: 11.5, color: _textMuted),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+// ── Warehouse Heat-map ─────────────────────────────────────────────────────────
+
+class _WarehouseHeatmap extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: _kDemoInventario
+          .map((item) => _WarehouseRow(item: item))
+          .toList(),
+    );
+  }
+}
+
+class _WarehouseRow extends StatefulWidget {
+  final _InventarioItem item;
+  const _WarehouseRow({required this.item});
+
+  @override
+  State<_WarehouseRow> createState() => _WarehouseRowState();
+}
+
+class _WarehouseRowState extends State<_WarehouseRow> {
+  bool _hovered = false;
+
+  Color _statusColor(String clasif, double exist) {
+    if (exist == 0) return const Color(0xFFE53935);
+    switch (clasif) {
+      case 'A':
+        return const Color(0xFF2BAE7E);
+      case 'AA':
+        return const Color(0xFF458AC9);
+      case 'Z':
+        return const Color(0xFFE67E22);
+      case 'ZZ':
+        return const Color(0xFFE53935);
+      default:
+        return _textMuted;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    final color = _statusColor(item.clasificacion, item.cantExistencia);
+
+    // Fill ratio capped at 1.0, using max stock in the set as reference (45)
+    final ratio = (item.cantExistencia / 45.0).clamp(0.0, 1.0);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 130),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: _hovered ? color.withOpacity(0.05) : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: _hovered ? color.withOpacity(0.3) : _sidebarBorder,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item.descBodega,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: _textPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    item.clasificacion,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 7),
+            // Progress bar
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: ratio,
+                minHeight: 6,
+                backgroundColor: _sidebarBorder,
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+              ),
+            ),
+            const SizedBox(height: 5),
+            Row(
+              children: [
+                Text(
+                  '${item.cantExistencia.toInt()} ${item.unidad}',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                if (item.cantTransito > 0)
+                  Text(
+                    '+${item.cantTransito.toInt()} en tránsito',
+                    style: const TextStyle(fontSize: 10, color: _textMuted),
+                  ),
+              ],
             ),
           ],
         ),

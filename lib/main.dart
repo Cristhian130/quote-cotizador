@@ -63,6 +63,7 @@ class _AppRouterState extends State<_AppRouter> {
       _Screen.home => HomeScreen(
         onNavigateToVentas: () => setState(() => _screen = _Screen.splash),
         onNavigateToStock: () => setState(() => _screen = _Screen.stock),
+        onNavigateToInsights: () => setState(() => _screen = _Screen.insights),
       ),
       // SplashScreen (inventory sync) only runs when entering Ventas
       _Screen.splash => SplashScreen(
@@ -72,8 +73,12 @@ class _AppRouterState extends State<_AppRouter> {
       _Screen.stock => StockScreen(
         onBack: () => setState(() => _screen = _Screen.home),
       ),
+      _Screen.insights => StockScreen(
+        initialId: 'insights',
+        onBack: () => setState(() => _screen = _Screen.home),
+      ),
     };
   }
 }
 
-enum _Screen { home, splash, ventas, stock }
+enum _Screen { home, splash, ventas, stock, insights }

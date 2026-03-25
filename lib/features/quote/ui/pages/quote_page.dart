@@ -11,6 +11,7 @@ import '../organisms/action_bar.dart';
 import '../organisms/summary_panel.dart';
 import '../organisms/search_results_dialog.dart';
 import 'package:intl/intl.dart';
+import '../organisms/stock_alert_banner.dart';
 
 class QuotePage extends ConsumerStatefulWidget {
   const QuotePage({super.key});
@@ -254,6 +255,7 @@ class _QuotePageState extends ConsumerState<QuotePage> {
                 setBodega: (v) => setState(() => bodega = v),
                 onBuscar: handleBuscar,
               ),
+              const StockAlertBanner(),
               Expanded(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
