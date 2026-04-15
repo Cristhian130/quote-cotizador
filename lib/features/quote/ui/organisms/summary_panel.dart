@@ -6,6 +6,7 @@ import '../molecules/labeled_select.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import '../../presentation/providers/delivery_provider.dart';
+import '../../presentation/providers/quote_provider.dart';
 
 class SummaryPanel extends ConsumerWidget {
   final double valMercancia;
@@ -89,18 +90,6 @@ class SummaryPanel extends ConsumerWidget {
         ? vehiculo
         : (opcionesVehiculo.isNotEmpty ? opcionesVehiculo.first : vehiculo);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (safeCiudad != ciudad && safeCiudad.isNotEmpty) {
-        setCiudad(safeCiudad);
-      }
-      if (safeBarrio != barrio && safeBarrio.isNotEmpty) {
-        setBarrio(safeBarrio);
-      }
-      if (safeVehiculo != vehiculo && safeVehiculo.isNotEmpty) {
-        setVehiculo(safeVehiculo);
-      }
-    });
-
     // Traer la regla de tarifa completa para el calculo en backend/frontend (opcional para ui)
     final tarifaAsync = ref.watch(
       deliveryTarifaProvider((
@@ -114,8 +103,21 @@ class SummaryPanel extends ConsumerWidget {
         ? (tarifaAsync.value?.tarifa ?? 0.0)
         : 0.0;
 
-    // Valor Neto sumando la tarifa dinámica
-    final double valorNetoFinal = valorNeto + tarifaAplicada;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (safeCiudad != ciudad && safeCiudad.isNotEmpty) {
+        setCiudad(safeCiudad);
+      }
+      if (safeBarrio != barrio && safeBarrio.isNotEmpty) {
+        setBarrio(safeBarrio);
+      }
+      if (safeVehiculo != vehiculo && safeVehiculo.isNotEmpty) {
+        setVehiculo(safeVehiculo);
+      }
+      // Sincronizar tarifa con el proveedor global para que el PDF lo vea
+      if (tarifaAplicada != ref.read(quoteProvider).tarifaDomicilio) {
+        ref.read(quoteProvider.notifier).updateConfig(tarifaDomicilio: tarifaAplicada);
+      }
+    });
     return Container(
       width: 320,
       decoration: const BoxDecoration(
@@ -241,7 +243,7 @@ class SummaryPanel extends ConsumerWidget {
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 Text(
-                  _formatCurrency(valorNetoFinal),
+                  _formatCurrency(valorNeto),
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,

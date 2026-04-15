@@ -30,7 +30,7 @@ class RemoteDataSource {
       // Small delay so that the massive product sync doesn't crash the Node.js connection pool
       await Future.delayed(const Duration(seconds: 2));
 
-      final url = '${AppConfig.baseUrl}/api/cotizacion/delivery-rules';
+      final url = '${AppConfig.baseUrl}/api/api/cotizacion/delivery-rules';
       print('======================================================');
       print('📦 [SYNC] Haciendo petición GET a: $url');
       print('======================================================');

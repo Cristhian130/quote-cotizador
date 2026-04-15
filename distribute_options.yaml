@@ -1,0 +1,19 @@
+output: dist/
+
+env:
+  GH_TOKEN: ${{ env.GH_TOKEN }}
+
+releases:
+  - name: release
+    jobs:
+      - name: windows-msix
+        package:
+          platform: windows
+          target: msix
+        publish_to: github
+
+publishers:
+  - name: github
+    options:
+      repo_owner: Cristhian130
+      repo_name: quote-cotizador

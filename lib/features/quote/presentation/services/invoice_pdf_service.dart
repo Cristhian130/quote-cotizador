@@ -135,18 +135,16 @@ class InvoicePdfService {
                 bottom: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
               ),
               columnWidths: {
-                0: const pw.FlexColumnWidth(2), // Product Id (Referencia)
-                1: const pw.FlexColumnWidth(5), // Product Name (Descripcion)
-                2: const pw.FlexColumnWidth(2), // Price
-                3: const pw.FlexColumnWidth(2), // Quantity
-                4: const pw.FlexColumnWidth(2), // Total
+                0: const pw.FlexColumnWidth(6), // Product Name (Descripcion)
+                1: const pw.FlexColumnWidth(2), // Price
+                2: const pw.FlexColumnWidth(2), // Quantity
+                3: const pw.FlexColumnWidth(2), // Total
               },
               children: [
                 // Header row
                 pw.TableRow(
                   decoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF458AC9)),
                   children: [
-                    _buildHeaderCell('Referencia', style: boldStyle),
                     _buildHeaderCell('Descripción', style: boldStyle),
                     _buildHeaderCell('Precio Unit.', style: boldStyle),
                     _buildHeaderCell('Cant.', style: boldStyle),
@@ -157,7 +155,6 @@ class InvoicePdfService {
                 ...quote.items.map((item) {
                   return pw.TableRow(
                     children: [
-                      _buildCell(item.referencia, style: baseStyle),
                       _buildCell(item.descripcion, style: baseStyle),
                       _buildCell(currency.format(item.precioXUnidad), style: baseStyle),
                       _buildCell(item.cantidad.toString(), align: pw.TextAlign.center, style: baseStyle),
@@ -177,8 +174,13 @@ class InvoicePdfService {
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
                   children: [
-                    pw.Text('Subtotal: ${currency.format(quote.subtotal + quote.ivaTotal)}', style: baseStyle),
+                    pw.Text('Subtotal Productos: ${currency.format(quote.valMercancia - quote.descuentos - quote.ivaProductos)}', style: baseStyle),
+                    pw.Text('IVA Productos: ${currency.format(quote.ivaProductos)}', style: baseStyle),
                     pw.Text('Descuentos: -${currency.format(quote.descuentos)}', style: baseStyle),
+                    if (quote.cobraDomicilio) ...[
+                      pw.Text('Domicilio: ${currency.format(quote.tarifaDomicilio)}', style: baseStyle),
+                      pw.Text('IVA Domicilio (19%): ${currency.format(quote.ivaDomicilio)}', style: baseStyle),
+                    ],
                     pw.Divider(color: PdfColors.grey),
                     pw.Text(
                       'TOTAL A PAGAR: ${currency.format(quote.valorNeto)}',

@@ -211,7 +211,7 @@ class _InvoiceHeaderState extends ConsumerState<InvoiceHeader> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -223,12 +223,33 @@ class _InvoiceHeaderState extends ConsumerState<InvoiceHeader> {
                       letterSpacing: -0.5,
                     ),
                   ),
-                  Text(
-                    'Sistema de Facturacion',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: IaColors.mutedForeground,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        'Sistema de Facturacion',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: IaColors.mutedForeground,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.green.withOpacity(0.3)),
+                        ),
+                        child: const Text(
+                          'v1.0.1',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

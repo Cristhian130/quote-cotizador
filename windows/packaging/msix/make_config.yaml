@@ -1,0 +1,8 @@
+display_name: Quote
+publisher_display_name: Cristhian130
+identity_name: com.cristhian130.quote
+publisher: CN=Cristhian130, O=Cristhian130, C=CO
+msix_version: 1.0.1.0
+install_certificate: "false"
+generate_app_installer: true
+app_installer_uri: https://github.com/Cristhian130/quote-cotizador/releases/latest/download/quote.appinstaller

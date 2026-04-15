@@ -12,6 +12,7 @@ class ProductTable extends StatefulWidget {
   final List<ProductItem> items;
   final void Function(String id, int cantidad) onUpdateCantidad;
   final void Function(String id, double descuento) onUpdateDescuento;
+  final void Function(String id, String descripcion) onUpdateDescripcion;
   final void Function(String id) onRemoveItem;
 
   const ProductTable({
@@ -19,6 +20,7 @@ class ProductTable extends StatefulWidget {
     required this.items,
     required this.onUpdateCantidad,
     required this.onUpdateDescuento,
+    required this.onUpdateDescripcion,
     required this.onRemoveItem,
   });
 
@@ -174,6 +176,7 @@ class _ProductTableState extends State<ProductTable> {
         item: displayedItems[i],
         onUpdateCantidad: widget.onUpdateCantidad,
         onUpdateDescuento: widget.onUpdateDescuento,
+        onUpdateDescripcion: widget.onUpdateDescripcion,
         onRemoveItem: widget.onRemoveItem,
         formatCurrency: _formatCurrency,
       ),
@@ -188,6 +191,7 @@ class _GlowingRow extends StatefulWidget {
   final ProductItem item;
   final void Function(String, int) onUpdateCantidad;
   final void Function(String, double) onUpdateDescuento;
+  final void Function(String, String) onUpdateDescripcion;
   final void Function(String) onRemoveItem;
   final String Function(double) formatCurrency;
 
@@ -196,6 +200,7 @@ class _GlowingRow extends StatefulWidget {
     required this.item,
     required this.onUpdateCantidad,
     required this.onUpdateDescuento,
+    required this.onUpdateDescripcion,
     required this.onRemoveItem,
     required this.formatCurrency,
   });
@@ -285,17 +290,12 @@ class _GlowingRowState extends State<_GlowingRow>
                     ),
                   ),
                 ),
-                // DESCRIPCION
+                // DESCRIPCION (Editable)
                 Expanded(
                   flex: 3,
-                  child: Text(
-                    item.descripcion,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: _DescripcionField(
+                    item: item,
+                    onUpdateDescripcion: widget.onUpdateDescripcion,
                   ),
                 ),
                 // BODEGA
@@ -539,6 +539,74 @@ class _DescuentoFieldState extends State<_DescuentoField> {
         _apply(_ctrl.text);
         FocusScope.of(context).unfocus();
       },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// Editable description field
+// ─────────────────────────────────────────────────────────
+class _DescripcionField extends StatefulWidget {
+  final ProductItem item;
+  final void Function(String, String) onUpdateDescripcion;
+
+  const _DescripcionField({
+    required this.item,
+    required this.onUpdateDescripcion,
+  });
+
+  @override
+  State<_DescripcionField> createState() => _DescripcionFieldState();
+}
+
+class _DescripcionFieldState extends State<_DescripcionField> {
+  late final TextEditingController _ctrl;
+  bool _isEditing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.item.descripcion);
+  }
+
+  @override
+  void didUpdateWidget(_DescripcionField old) {
+    super.didUpdateWidget(old);
+    if (old.item.descripcion != widget.item.descripcion && !_isEditing) {
+      _ctrl.text = widget.item.descripcion;
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      onFocusChange: (hasFocus) {
+        setState(() => _isEditing = hasFocus);
+        if (!hasFocus) {
+          widget.onUpdateDescripcion(widget.item.id, _ctrl.text);
+        }
+      },
+      child: TextField(
+        controller: _ctrl,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+        decoration: const InputDecoration(
+          isDense: true,
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.zero,
+        ),
+        onSubmitted: (val) {
+          widget.onUpdateDescripcion(widget.item.id, val);
+        },
+      ),
     );
   }
 }

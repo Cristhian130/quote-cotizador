@@ -17,11 +17,6 @@ final deliveryRepositoryProvider = Provider<DeliveryRepository>((ref) {
 
 // Auto-sync delivery rules on app load
 final syncDeliveryRulesProvider = FutureProvider<void>((ref) async {
-  // --- DEV MODE HOT RESTART BYPASS ---
-  bool isDevBypass = true;
-  if (isDevBypass) return;
-  // -----------------------------------
-
   final repo = ref.watch(deliveryRepositoryProvider);
   await repo.syncDeliveryRules();
 

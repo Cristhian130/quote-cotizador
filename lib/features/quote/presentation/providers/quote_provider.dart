@@ -8,6 +8,8 @@ class QuoteState {
   final String vehiculo;
   final String ciudad;
   final String barrio;
+  final double tarifaDomicilio;
+
 
   QuoteState({
     this.items = const [],
@@ -16,6 +18,7 @@ class QuoteState {
     this.vehiculo = 'MO',
     this.ciudad = '',
     this.barrio = '',
+    this.tarifaDomicilio = 0.0,
   });
 
   // Val. Mercancia = P.+IVA × cantidad (antes de descuento)
@@ -28,16 +31,18 @@ class QuoteState {
       items.fold(0.0, (sum, item) => sum + item.descuentoAplicado);
 
   // Subtotal SIN IVA = (P.+IVA×cant - descuentos) - IVA
-  double get subtotal => (valMercancia - descuentos) - ivaTotal;
+  double get subtotal => (valMercancia - descuentos - ivaProductos) + (cobraDomicilio ? tarifaDomicilio : 0.0);
 
-  // IVA informativo: se extrae del precio base para mostrarlo por separado
-  double get ivaTotal => items.fold(
-    0.0,
-    (sum, item) =>
-        sum + ((item.precioUnitario * item.cantidad * item.iva) / 100),
-  );
+  double get ivaTotal => ivaProductos + ivaDomicilio;
 
-  // Valor Neto = Subtotal + IVA (total con IVA)
+  double get ivaProductos => items.fold(
+        0.0,
+        (sum, item) =>
+            sum + ((item.precioUnitario * item.cantidad * item.iva) / 100),
+      );
+
+  double get ivaDomicilio => cobraDomicilio ? (tarifaDomicilio * 0.19) : 0.0;
+
   double get valorNeto => subtotal + ivaTotal;
 
   bool get canDownload => items.isNotEmpty && client != null;
@@ -49,6 +54,7 @@ class QuoteState {
     String? vehiculo,
     String? ciudad,
     String? barrio,
+    double? tarifaDomicilio,
   }) {
     return QuoteState(
       items: items ?? this.items,
@@ -57,6 +63,7 @@ class QuoteState {
       vehiculo: vehiculo ?? this.vehiculo,
       ciudad: ciudad ?? this.ciudad,
       barrio: barrio ?? this.barrio,
+      tarifaDomicilio: tarifaDomicilio ?? this.tarifaDomicilio,
     );
   }
 }
@@ -80,10 +87,18 @@ class QuoteNotifier extends Notifier<QuoteState> {
         final newPrecioTotal = base - newDescuentoAplicado;
         return item.copyWith(
           cantidad: cantidad,
-          descripcion: item.descripcion,
           precioTotal: newPrecioTotal,
           descuentoAplicado: newDescuentoAplicado,
         );
+      }).toList(),
+    );
+  }
+
+  void updateDescripcion(String id, String nuevaDescripcion) {
+    state = state.copyWith(
+      items: state.items.map((item) {
+        if (item.id != id) return item;
+        return item.copyWith(descripcion: nuevaDescripcion);
       }).toList(),
     );
   }
@@ -120,12 +135,14 @@ class QuoteNotifier extends Notifier<QuoteState> {
     String? vehiculo,
     String? ciudad,
     String? barrio,
+    double? tarifaDomicilio,
   }) {
     state = state.copyWith(
       cobraDomicilio: cobraDomicilio,
       vehiculo: vehiculo,
       ciudad: ciudad,
       barrio: barrio,
+      tarifaDomicilio: tarifaDomicilio,
     );
   }
 

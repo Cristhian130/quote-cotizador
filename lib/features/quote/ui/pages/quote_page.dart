@@ -145,8 +145,12 @@ class _QuotePageState extends ConsumerState<QuotePage> {
     ref.read(quoteProvider.notifier).updateCantidad(id, cantidad);
   }
 
-  void handleUpdateDescuento(String id, double nuevoDescuento) {
-    ref.read(quoteProvider.notifier).updateDescuento(id, nuevoDescuento);
+  void handleUpdateDescuento(String id, double descuento) {
+    ref.read(quoteProvider.notifier).updateDescuento(id, descuento);
+  }
+
+  void handleUpdateDescripcion(String id, String descripcion) {
+    ref.read(quoteProvider.notifier).updateDescripcion(id, descripcion);
   }
 
   void handleRemoveItem(String id) {
@@ -385,6 +389,7 @@ class _QuotePageState extends ConsumerState<QuotePage> {
                             items: items,
                             onUpdateCantidad: handleUpdateCantidad,
                             onUpdateDescuento: handleUpdateDescuento,
+                            onUpdateDescripcion: handleUpdateDescripcion,
                             onRemoveItem: handleRemoveItem,
                           ),
                           ActionBar(

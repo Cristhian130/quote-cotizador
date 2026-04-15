@@ -36,6 +36,9 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
     with SingleTickerProviderStateMixin {
   // ← index-based: fixes the "all selected" bug caused by shared referencia
   final Set<int> _selected = {};
+  /// Track edited descriptions by product reference (since indices might change if we filtered, 
+  /// though here products is usually static for the dialog instance).
+  final Map<String, String> _editedDescriptions = {};
   late final AnimationController _ctrl;
   late final Animation<double> _anim;
 
@@ -86,7 +89,11 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
   }
 
   void _confirm() {
-    final sel = _selected.map((i) => widget.products[i]).toList();
+    final sel = _selected.map((i) {
+      final p = widget.products[i];
+      final edited = _editedDescriptions[p.referencia];
+      return edited != null ? p.copyWith(descripcion: edited) : p;
+    }).toList();
     Navigator.of(context).pop();
     widget.onAddSelected(sel);
   }
@@ -241,7 +248,7 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
           _hdr('BODEGA', flex: 1),
           _hdr('DISP.', flex: 1, align: TextAlign.center),
           _hdr('PRECIO', flex: 2, align: TextAlign.right),
-          _hdr('IVA', flex: 1, align: TextAlign.center),
+          _hdr('PRECIO + IVA', flex: 2, align: TextAlign.right),
           const SizedBox(width: 36),
         ],
       ),
@@ -252,18 +259,28 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
     return ListView.builder(
       itemCount: widget.products.length,
       itemBuilder: (_, i) {
-        return _ProductRow(
-          key: ValueKey(i),
-          index: i,
-          product: widget.products[i],
-          isSelected: _selected.contains(i),
-          formatPrice: _formatPrice,
-          onToggle: () => _toggle(i),
-          onAddSingle: () {
-            Navigator.of(context).pop();
-            widget.onAddSelected([widget.products[i]]);
-          },
-        );
+          return _ProductRow(
+            key: ValueKey(i),
+            index: i,
+            product: widget.products[i],
+            editedDescription: _editedDescriptions[widget.products[i].referencia],
+            isSelected: _selected.contains(i),
+            formatPrice: _formatPrice,
+            onToggle: () => _toggle(i),
+            onDescriptionChanged: (val) {
+              setState(() {
+                _editedDescriptions[widget.products[i].referencia] = val;
+              });
+            },
+            onAddSingle: () {
+              final p = widget.products[i];
+              final edited = _editedDescriptions[p.referencia];
+              final finalProduct =
+                  edited != null ? p.copyWith(descripcion: edited) : p;
+              Navigator.of(context).pop();
+              widget.onAddSelected([finalProduct]);
+            },
+          );
       },
     );
   }
@@ -353,18 +370,22 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
 class _ProductRow extends StatefulWidget {
   final int index;
   final Product product;
+  final String? editedDescription;
   final bool isSelected;
   final String Function(double) formatPrice;
   final VoidCallback onToggle;
+  final ValueChanged<String> onDescriptionChanged;
   final VoidCallback onAddSingle;
 
   const _ProductRow({
     super.key,
     required this.index,
     required this.product,
+    this.editedDescription,
     required this.isSelected,
     required this.formatPrice,
     required this.onToggle,
+    required this.onDescriptionChanged,
     required this.onAddSingle,
   });
 
@@ -440,18 +461,30 @@ class _ProductRowState extends State<_ProductRow> {
                   ),
                 ),
               ),
-              // Descripcion
+              // Descripcion (Editable)
               Expanded(
                 flex: 4,
-                child: Text(
-                  widget.product.descripcion,
-                  style: TextStyle(
+                child: TextField(
+                  controller: TextEditingController(
+                    text: widget.editedDescription ?? widget.product.descripcion,
+                  )..selection = TextSelection.fromPosition(
+                      TextPosition(
+                        offset: (widget.editedDescription ??
+                                widget.product.descripcion)
+                            .length,
+                      ),
+                    ),
+                  onChanged: widget.onDescriptionChanged,
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: IaColors.foreground,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
                 ),
               ),
               // Bodega
@@ -507,15 +540,17 @@ class _ProductRowState extends State<_ProductRow> {
                   ),
                 ),
               ),
-              // IVA
+              // Precio + IVA
               Expanded(
-                flex: 1,
+                flex: 2,
                 child: Text(
-                  '${widget.product.iva.toInt()}%',
-                  textAlign: TextAlign.center,
+                  '\$ ${widget.formatPrice(widget.product.precioParti * (1 + widget.product.iva / 100))}',
+                  textAlign: TextAlign.right,
                   style: TextStyle(
-                    fontSize: 11,
-                    color: _lightBlue.withOpacity(0.65),
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w600,
+                    color: _lightBlue.withOpacity(0.9),
                   ),
                 ),
               ),
