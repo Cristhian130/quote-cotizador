@@ -1,6 +1,8 @@
 # Script de Instalación para Quote
 # Este script instala el certificado de confianza y luego la aplicación MSIX.
 
+Set-Location -Path $PSScriptRoot
+
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host "Solicitando permisos de administrador..." -ForegroundColor Yellow
     Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
