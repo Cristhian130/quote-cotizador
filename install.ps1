@@ -9,7 +9,15 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     exit
 }
 
+# 3. Buscar el archivo MSIX (ahora sí lo encontrará porque estamos en la carpeta correcta)
+# Intentamos el patrón específico, si no, buscamos cualquier MSIX
 $msixFile = Get-ChildItem -Filter "quote-*-windows.msix" | Select-Object -First 1
+if (-not $msixFile) {
+    $msixFile = Get-ChildItem -Filter "quote.msix" | Select-Object -First 1
+}
+if (-not $msixFile) {
+    $msixFile = Get-ChildItem -Filter "*.msix" | Select-Object -First 1
+}
 
 if (-not $msixFile) {
     Write-Error "No se encontró el archivo .msix en la carpeta actual."
