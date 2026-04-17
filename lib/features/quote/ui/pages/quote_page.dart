@@ -375,7 +375,7 @@ class _QuotePageState extends ConsumerState<QuotePage> {
                 descripcion: descripcion,
                 setDescripcion: (v) => setState(() => descripcion = v),
                 bodega: bodega,
-                setBodega: (v) => setState(() => bodega = v),
+                setBodega: (v) => setState(() => bodega = v.toUpperCase()),
                 onBuscar: handleBuscar,
               ),
               Expanded(

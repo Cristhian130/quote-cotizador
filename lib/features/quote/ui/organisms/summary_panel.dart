@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/ia_colors.dart';
 import '../molecules/checkbox_with_label.dart';
-import '../molecules/labeled_select.dart';
+import '../molecules/ia_select.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import '../../presentation/providers/delivery_provider.dart';
@@ -169,9 +169,9 @@ class SummaryPanel extends ConsumerWidget {
                   ),
                   if (cobraDomicilio) ...[
                     const SizedBox(height: 16),
-                    LabeledSelect(
+                    IaSelect(
                       label: 'Vehiculo',
-                      icon: LucideIcons.building2,
+                      icon: LucideIcons.truck,
                       value: safeVehiculo.isEmpty ? null : safeVehiculo,
                       options: opcionesVehiculo.isEmpty
                           ? (safeVehiculo.isEmpty ? [] : [safeVehiculo])
@@ -179,9 +179,10 @@ class SummaryPanel extends ConsumerWidget {
                       onChanged: (val) => setVehiculo(val ?? ''),
                     ),
                     const SizedBox(height: 12),
-                    LabeledSelect(
+                    IaSelect(
                       label: 'Ciudad',
                       icon: LucideIcons.mapPin,
+                      placeholder: 'Buscar ciudad...',
                       value: safeCiudad.isEmpty ? null : safeCiudad,
                       options: opcionesCiudad.isEmpty
                           ? (safeCiudad.isEmpty ? [] : [safeCiudad])
@@ -192,9 +193,10 @@ class SummaryPanel extends ConsumerWidget {
                       },
                     ),
                     const SizedBox(height: 12),
-                    LabeledSelect(
+                    IaSelect(
                       label: 'Barrio',
-                      icon: LucideIcons.mapPin,
+                      icon: LucideIcons.navigation,
+                      placeholder: 'Buscar barrio...',
                       value: safeBarrio.isEmpty ? null : safeBarrio,
                       options: opcionesBarrio.isEmpty
                           ? (safeBarrio.isEmpty ? [] : [safeBarrio])
