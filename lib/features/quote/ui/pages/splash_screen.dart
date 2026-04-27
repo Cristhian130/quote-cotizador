@@ -393,7 +393,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
             child: FadeTransition(
               opacity: _textOpacity,
               child: Text(
-                'v1.0.1  ·  Importadoras Asociadas',
+                'v1.0.3  ·  Importadoras Asociadas',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.3),
                   fontSize: 11,
