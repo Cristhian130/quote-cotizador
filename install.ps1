@@ -1,57 +1,61 @@
-# Script de Instalación para Quote
-# Este script instala el certificado de confianza y luego la aplicación MSIX.
-
-Set-Location -Path $PSScriptRoot
-
-if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "Solicitando permisos de administrador..." -ForegroundColor Yellow
-    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
-    exit
-}
-
-# 3. Buscar el archivo MSIX (ahora sí lo encontrará porque estamos en la carpeta correcta)
-# Intentamos el patrón específico, si no, buscamos cualquier MSIX
-$msixFile = Get-ChildItem -Filter "quote-*-windows.msix" | Select-Object -First 1
-if (-not $msixFile) {
-    $msixFile = Get-ChildItem -Filter "quote.msix" | Select-Object -First 1
-}
-if (-not $msixFile) {
-    $msixFile = Get-ChildItem -Filter "*.msix" | Select-Object -First 1
-}
-
-if (-not $msixFile) {
-    Write-Error "No se encontró el archivo .msix en la carpeta actual."
-    pause
-    exit
-}
-
-Write-Host "Instalando certificado de confianza para: $($msixFile.Name)..." -ForegroundColor Cyan
+# Script de instalación inteligente para Quote (Importadoras Asociadas)
+$ErrorActionPreference = "Stop"
 
 try {
-    $cert = (Get-AuthenticodeSignature -FilePath $msixFile.FullName).SignerCertificate
-    if (-not $cert) {
-        throw "El archivo no está firmado o no se pudo extraer el certificado."
+    Set-Location -Path $PSScriptRoot
+    Write-Host "--- Preparando Instalación de Quote ---" -ForegroundColor Cyan
+
+    # 1. Verificar si el certificado ya es de confianza
+    $thumbprint = ""
+    if (Test-Path "certificate.cer") {
+        $thumbprint = (Get-PfxCertificate -FilePath "certificate.cer" -ErrorAction SilentlyContinue).Thumbprint
+    } elseif (Test-Path "certificate.pfx") {
+        $thumbprint = (Get-PfxCertificate -FilePath "certificate.pfx" -ErrorAction SilentlyContinue).Thumbprint
     }
 
-    $rootStore = New-Object System.Security.Cryptography.X509Certificates.X509Store("Root", "LocalMachine")
-    $rootStore.Open("ReadWrite")
-    $rootStore.Add($cert)
-    $rootStore.Close()
+    $isTrusted = $false
+    if ($thumbprint) {
+        $isTrusted = Get-ChildItem -Path Cert:\LocalMachine\Root | Where-Object { $_.Thumbprint -eq $thumbprint }
+    }
 
-    $pubStore = New-Object System.Security.Cryptography.X509Certificates.X509Store("TrustedPublisher", "LocalMachine")
-    $pubStore.Open("ReadWrite")
-    $pubStore.Add($cert)
-    $pubStore.Close()
+    if (-not $isTrusted) {
+        # Necesitamos elevar para instalar el certificado
+        $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+        if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+            Write-Host "Instalando certificado de confianza (Se requieren permisos)..." -ForegroundColor Yellow
+            
+            $certFile = ""
+            if (Test-Path "certificate.cer") { $certFile = "certificate.cer" }
+            elseif (Test-Path "certificate.pfx") { $certFile = "certificate.pfx" }
+            
+            if ($certFile) {
+                $certScript = ""
+                if ($certFile.EndsWith(".cer")) {
+                    $certScript = "Import-Certificate -FilePath '$PSScriptRoot\$certFile' -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople'; Import-Certificate -FilePath '$PSScriptRoot\$certFile' -CertStoreLocation 'Cert:\LocalMachine\Root'"
+                } else {
+                    $certScript = "`$pwd = ConvertTo-SecureString 'Importadoras2024' -AsPlainText -Force; Import-PfxCertificate -FilePath '$PSScriptRoot\$certFile' -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople' -Password `$pwd; Import-PfxCertificate -FilePath '$PSScriptRoot\$certFile' -CertStoreLocation 'Cert:\LocalMachine\Root' -Password `$pwd"
+                }
+                Start-Process powershell -ArgumentList "-NoProfile -Command $certScript" -Verb RunAs -Wait
+                Write-Host "Certificado instalado." -ForegroundColor Green
+            } else {
+                throw "FALTA EL CERTIFICADO: No se encontró 'certificate.cer' ni 'certificate.pfx' en esta carpeta."
+            }
+        }
+    }
 
-    Write-Host "Certificado instalado correctamente." -ForegroundColor Green
+    # 2. Buscar el archivo .msix
+    $msixFile = Get-ChildItem -Filter "quote*.msix" | Select-Object -First 1
+    if (-not $msixFile) { throw "No se encontró el archivo .msix en esta carpeta." }
+
+    # 3. Instalar la app para el usuario ACTUAL
+    Write-Host "Instalando aplicación para el usuario actual: $($env:USERNAME)..." -ForegroundColor Cyan
+    Add-AppxPackage -Path $msixFile.FullName
+    Write-Host "¡Instalación completada con éxito!" -ForegroundColor Green
+    Write-Host "Ya puedes buscar 'Quote' en tu menú de inicio." -ForegroundColor White
+
 } catch {
-    Write-Error "Error al instalar el certificado: $_"
-    pause
-    exit
+    Write-Host "`n[ERROR] $($_.Exception.Message)" -ForegroundColor Red
 }
 
-Write-Host "Instalando aplicación..." -ForegroundColor Cyan
-Add-AppxPackage -Path $msixFile.FullName
-
-Write-Host "¡Instalación completada con éxito!" -ForegroundColor Green
-pause
+Write-Host "`nProceso finalizado." -ForegroundColor Cyan
+Read-Host "Presione Entrar para cerrar..."
