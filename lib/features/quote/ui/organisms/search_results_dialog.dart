@@ -39,6 +39,8 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
   /// Track edited descriptions by product reference (since indices might change if we filtered, 
   /// though here products is usually static for the dialog instance).
   final Map<String, String> _editedDescriptions = {};
+  bool _sortByDescription = false;
+  String _localFilter = '';
   late final AnimationController _ctrl;
   late final Animation<double> _anim;
 
@@ -160,29 +162,60 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
             ),
             child: const Icon(Icons.search, color: _lightBlue, size: 17),
           ),
-          const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Resultados de búsqueda',
-                style: const TextStyle(
+                'Resultados',
+                style: TextStyle(
                   color: IaColors.foreground,
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
                 ),
               ),
               Text(
-                '${widget.products.length} producto${widget.products.length != 1 ? 's' : ''} encontrado${widget.products.length != 1 ? 's' : ''}',
+                '${widget.products.length} encontrados',
                 style: const TextStyle(
                   color: IaColors.mutedForeground,
-                  fontSize: 12,
+                  fontSize: 11,
                 ),
               ),
             ],
           ),
-          const Spacer(),
+          const SizedBox(width: 32),
+          // Buscador inteligente local
+          Expanded(
+            child: Container(
+              height: 36,
+              decoration: BoxDecoration(
+                color: IaColors.muted.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: IaColors.border),
+              ),
+              child: TextField(
+                onChanged: (v) => setState(() => _localFilter = v),
+                style: const TextStyle(fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: 'Filtrar descripción...',
+                  hintStyle: TextStyle(
+                    color: IaColors.mutedForeground.withOpacity(0.7),
+                    fontSize: 13,
+                  ),
+                  prefixIcon: const Icon(Icons.filter_list, size: 16, color: _lightBlue),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                  suffixIcon: _localFilter.isNotEmpty 
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 14),
+                        onPressed: () => setState(() => _localFilter = ''),
+                      )
+                    : null,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 24),
           _selectAllButton(),
           const SizedBox(width: 8),
           IconButton(
@@ -244,7 +277,13 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
         children: [
           const SizedBox(width: 44),
           _hdr('REFERENCIA', flex: 2),
-          _hdr('DESCRIPCIÓN', flex: 4),
+          _hdr(
+            'DESCRIPCIÓN',
+            flex: 4,
+            isSortable: true,
+            isSorted: _sortByDescription,
+            onTap: () => setState(() => _sortByDescription = !_sortByDescription),
+          ),
           _hdr('BODEGA', flex: 1),
           _hdr('DISP.', flex: 1, align: TextAlign.center),
           _hdr('PRECIO', flex: 2, align: TextAlign.right),
@@ -256,24 +295,37 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
   }
 
   Widget _buildRows() {
+    var filtered = List<Product>.from(widget.products);
+    
+    // Filtro inteligente local
+    if (_localFilter.isNotEmpty) {
+      final q = _localFilter.toLowerCase();
+      filtered = filtered.where((p) => p.descripcion.toLowerCase().contains(q)).toList();
+    }
+
+    if (_sortByDescription) {
+      filtered.sort((a, b) => a.descripcion.compareTo(b.descripcion));
+    }
+
     return ListView.builder(
-      itemCount: widget.products.length,
+      itemCount: filtered.length,
       itemBuilder: (_, i) {
+          final product = filtered[i];
           return _ProductRow(
-            key: ValueKey(i),
+            key: ValueKey(product.referencia + i.toString()),
             index: i,
-            product: widget.products[i],
-            editedDescription: _editedDescriptions[widget.products[i].referencia],
+            product: product,
+            editedDescription: _editedDescriptions[product.referencia],
             isSelected: _selected.contains(i),
             formatPrice: _formatPrice,
             onToggle: () => _toggle(i),
             onDescriptionChanged: (val) {
               setState(() {
-                _editedDescriptions[widget.products[i].referencia] = val;
+                _editedDescriptions[product.referencia] = val;
               });
             },
             onAddSingle: () {
-              final p = widget.products[i];
+              final p = product;
               final edited = _editedDescriptions[p.referencia];
               final finalProduct =
                   edited != null ? p.copyWith(descripcion: edited) : p;
@@ -346,17 +398,44 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
     );
   }
 
-  Widget _hdr(String label, {int flex = 1, TextAlign align = TextAlign.left}) {
+  Widget _hdr(
+    String label, {
+    int flex = 1,
+    TextAlign align = TextAlign.left,
+    bool isSortable = false,
+    bool isSorted = false,
+    VoidCallback? onTap,
+  }) {
     return Expanded(
       flex: flex,
-      child: Text(
-        label,
-        textAlign: align,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.5,
-          color: IaColors.mutedForeground,
+      child: InkWell(
+        onTap: isSortable ? onTap : null,
+        child: Row(
+          mainAxisAlignment: align == TextAlign.right
+              ? MainAxisAlignment.end
+              : (align == TextAlign.center
+                  ? MainAxisAlignment.center
+                  : MainAxisAlignment.start),
+          children: [
+            Text(
+              label,
+              textAlign: align,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+                color: isSorted ? _lightBlue : IaColors.mutedForeground,
+              ),
+            ),
+            if (isSortable) ...[
+              const SizedBox(width: 4),
+              Icon(
+                Icons.sort_by_alpha,
+                size: 12,
+                color: isSorted ? _lightBlue : IaColors.mutedForeground.withOpacity(0.5),
+              ),
+            ],
+          ],
         ),
       ),
     );

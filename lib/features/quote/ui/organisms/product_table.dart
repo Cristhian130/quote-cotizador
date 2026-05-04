@@ -30,6 +30,7 @@ class ProductTable extends StatefulWidget {
 
 class _ProductTableState extends State<ProductTable> {
   String _searchQuery = '';
+  bool _sortByDescription = false;
 
   String _formatCurrency(double value) {
     return NumberFormat.simpleCurrency(
@@ -49,6 +50,10 @@ class _ProductTableState extends State<ProductTable> {
           item.descripcion.toLowerCase().contains(q) ||
           item.bodega.toLowerCase().contains(q);
     }).toList();
+
+    if (_sortByDescription) {
+      filteredItems.sort((a, b) => a.descripcion.compareTo(b.descripcion));
+    }
 
     return Expanded(
       child: Container(
@@ -102,7 +107,13 @@ class _ProductTableState extends State<ProductTable> {
       child: Row(
         children: [
           _h('REFERENCIA', flex: 2),
-          _h('DESCRIPCION', flex: 3),
+          _h(
+            'DESCRIPCION',
+            flex: 3,
+            isSortable: true,
+            isSorted: _sortByDescription,
+            onTap: () => setState(() => _sortByDescription = !_sortByDescription),
+          ),
           _h('BODEGA', flex: 1, a: TextAlign.center),
           _h('DISP.', flex: 1, a: TextAlign.center),
           _h('UBIC.', flex: 1, a: TextAlign.center),
@@ -118,17 +129,44 @@ class _ProductTableState extends State<ProductTable> {
     );
   }
 
-  Widget _h(String t, {int flex = 1, TextAlign a = TextAlign.left}) {
+  Widget _h(
+    String t, {
+    int flex = 1,
+    TextAlign a = TextAlign.left,
+    bool isSortable = false,
+    bool isSorted = false,
+    VoidCallback? onTap,
+  }) {
     return Expanded(
       flex: flex,
-      child: Text(
-        t,
-        textAlign: a,
-        style: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: IaColors.mutedForeground,
-          letterSpacing: 0.4,
+      child: InkWell(
+        onTap: isSortable ? onTap : null,
+        child: Row(
+          mainAxisAlignment: a == TextAlign.right
+              ? MainAxisAlignment.end
+              : (a == TextAlign.center
+                  ? MainAxisAlignment.center
+                  : MainAxisAlignment.start),
+          children: [
+            Text(
+              t,
+              textAlign: a,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: isSorted ? _neonBlue : IaColors.mutedForeground,
+                letterSpacing: 0.4,
+              ),
+            ),
+            if (isSortable) ...[
+              const SizedBox(width: 4),
+              Icon(
+                Icons.sort_by_alpha,
+                size: 11,
+                color: isSorted ? _neonBlue : IaColors.mutedForeground.withOpacity(0.5),
+              ),
+            ],
+          ],
         ),
       ),
     );
