@@ -35,7 +35,8 @@ class SearchResultsDialog extends StatefulWidget {
 class _SearchResultsDialogState extends State<SearchResultsDialog>
     with SingleTickerProviderStateMixin {
   // ← index-based: fixes the "all selected" bug caused by shared referencia
-  final Set<int> _selected = {};
+  // Use references instead of indices to fix selection mismatches after sorting/filtering
+  final Set<String> _selectedRefs = {};
   /// Track edited descriptions by product reference (since indices might change if we filtered, 
   /// though here products is usually static for the dialog instance).
   final Map<String, String> _editedDescriptions = {};
@@ -67,32 +68,44 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
     super.dispose();
   }
 
-  void _toggle(int i) {
+  List<Product> _getFilteredProducts() {
+    var filtered = List<Product>.from(widget.products);
+    if (_localFilter.isNotEmpty) {
+      final q = _localFilter.toLowerCase();
+      filtered = filtered.where((p) => p.descripcion.toLowerCase().contains(q)).toList();
+    }
+    if (_sortByDescription) {
+      filtered.sort((a, b) => a.descripcion.compareTo(b.descripcion));
+    }
+    return filtered;
+  }
+
+  void _toggle(String ref) {
     setState(() {
-      if (_selected.contains(i)) {
-        _selected.remove(i);
+      if (_selectedRefs.contains(ref)) {
+        _selectedRefs.remove(ref);
       } else {
-        _selected.add(i);
+        _selectedRefs.add(ref);
       }
     });
   }
 
   void _toggleAll() {
+    final currentVisible = _getFilteredProducts();
+    final currentVisibleRefs = currentVisible.map((p) => p.referencia).toSet();
+    
     setState(() {
-      final all = Set<int>.from(
-        List.generate(widget.products.length, (i) => i),
-      );
-      if (_selected.containsAll(all)) {
-        _selected.clear();
+      if (_selectedRefs.containsAll(currentVisibleRefs)) {
+        _selectedRefs.removeAll(currentVisibleRefs);
       } else {
-        _selected.addAll(all);
+        _selectedRefs.addAll(currentVisibleRefs);
       }
     });
   }
 
   void _confirm() {
-    final sel = _selected.map((i) {
-      final p = widget.products[i];
+    final sel = _selectedRefs.map((ref) {
+      final p = widget.products.firstWhere((p) => p.referencia == ref);
       final edited = _editedDescriptions[p.referencia];
       return edited != null ? p.copyWith(descripcion: edited) : p;
     }).toList();
@@ -100,8 +113,12 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
     widget.onAddSelected(sel);
   }
 
-  bool get _allSelected =>
-      widget.products.isNotEmpty && _selected.length == widget.products.length;
+  bool get _allSelected {
+    final currentVisible = _getFilteredProducts();
+    if (currentVisible.isEmpty) return false;
+    final currentVisibleRefs = currentVisible.map((p) => p.referencia).toSet();
+    return _selectedRefs.containsAll(currentVisibleRefs);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -295,30 +312,20 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
   }
 
   Widget _buildRows() {
-    var filtered = List<Product>.from(widget.products);
-    
-    // Filtro inteligente local
-    if (_localFilter.isNotEmpty) {
-      final q = _localFilter.toLowerCase();
-      filtered = filtered.where((p) => p.descripcion.toLowerCase().contains(q)).toList();
-    }
-
-    if (_sortByDescription) {
-      filtered.sort((a, b) => a.descripcion.compareTo(b.descripcion));
-    }
+    final filtered = _getFilteredProducts();
 
     return ListView.builder(
       itemCount: filtered.length,
       itemBuilder: (_, i) {
           final product = filtered[i];
           return _ProductRow(
-            key: ValueKey(product.referencia + i.toString()),
+            key: ValueKey(product.referencia),
             index: i,
             product: product,
             editedDescription: _editedDescriptions[product.referencia],
-            isSelected: _selected.contains(i),
+            isSelected: _selectedRefs.contains(product.referencia),
             formatPrice: _formatPrice,
-            onToggle: () => _toggle(i),
+            onToggle: () => _toggle(product.referencia),
             onDescriptionChanged: (val) {
               setState(() {
                 _editedDescriptions[product.referencia] = val;
@@ -347,7 +354,7 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
       ),
       child: Row(
         children: [
-          if (_selected.isNotEmpty)
+          if (_selectedRefs.isNotEmpty)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
@@ -356,7 +363,7 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
                 border: Border.all(color: _lightBlue.withOpacity(0.3)),
               ),
               child: Text(
-                '${_selected.length} seleccionado${_selected.length != 1 ? 's' : ''}',
+                '${_selectedRefs.length} seleccionado${_selectedRefs.length != 1 ? 's' : ''}',
                 style: const TextStyle(color: _lightBlue, fontSize: 12),
               ),
             ),
@@ -370,15 +377,15 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
           ),
           const SizedBox(width: 12),
           AnimatedOpacity(
-            opacity: _selected.isNotEmpty ? 1.0 : 0.45,
+            opacity: _selectedRefs.isNotEmpty ? 1.0 : 0.45,
             duration: const Duration(milliseconds: 200),
             child: ElevatedButton.icon(
-              onPressed: _selected.isNotEmpty ? _confirm : null,
+              onPressed: _selectedRefs.isNotEmpty ? _confirm : null,
               icon: const Icon(Icons.add_shopping_cart, size: 15),
               label: Text(
-                _selected.isEmpty
+                _selectedRefs.isEmpty
                     ? 'Agregar a factura'
-                    : 'Agregar ${_selected.length} producto${_selected.length != 1 ? 's' : ''}',
+                    : 'Agregar ${_selectedRefs.length} producto${_selectedRefs.length != 1 ? 's' : ''}',
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _lightBlue,
