@@ -2,12 +2,12 @@
 <AppInstaller
     xmlns="http://schemas.microsoft.com/appx/appinstaller/2017/2"
     Uri="https://github.com/Cristhian130/quote-cotizador/releases/latest/download/quote.appinstaller"
-    Version="1.0.6.0">
+    Version="1.0.7.0">
     <MainPackage
         Name="com.cristhian130.quote"
         Publisher="CN=Importadoras Asociadas SAS, O=Importadoras Asociadas, C=CO"
-        Version="1.0.6.0"
-        Uri="https://github.com/Cristhian130/quote-cotizador/releases/download/v1.0.6+7/quote-1.0.6+7-windows.msix"
+        Version="1.0.7.0"
+        Uri="https://github.com/Cristhian130/quote-cotizador/releases/download/v1.0.7+8/quote-1.0.7+8-windows.msix"
         ProcessorArchitecture="x64"/>
     <UpdateSettings>
         <OnLaunch HoursBetweenUpdateChecks="0"/>

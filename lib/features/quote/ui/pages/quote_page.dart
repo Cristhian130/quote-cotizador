@@ -16,6 +16,7 @@ import '../organisms/search_results_dialog.dart';
 import '../organisms/client_stepper_dialog.dart';
 import '../../presentation/services/invoice_pdf_service.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/config/app_config.dart';
 
 class QuotePage extends ConsumerStatefulWidget {
   const QuotePage({super.key});
@@ -171,10 +172,71 @@ class _QuotePageState extends ConsumerState<QuotePage> {
   }
 
   void handleDescargar() async {
-    showToast('Generando factura...');
+    final sellerNameController = TextEditingController(text: AppConfig.sellerName);
+
+    final String? sellerName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text('Información del Vendedor'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Ingresa tu nombre para que aparezca en el comprobante.',
+              style: TextStyle(fontSize: 13, color: IaColors.mutedForeground),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: sellerNameController,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Nombre del Vendedor',
+                hintText: 'Ej. Juan Perez',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                prefixIcon: const Icon(Icons.person_outline),
+              ),
+              onSubmitted: (val) => Navigator.of(context).pop(val),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(sellerNameController.text),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: IaColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Generar PDF'),
+          ),
+        ],
+      ),
+    );
+
+    if (sellerName == null || sellerName.trim().isEmpty) return;
+
+    // Persist seller name for next time
+    await AppConfig.setSellerName(sellerName.trim());
+
+    showToast('Generando comprobante...');
     try {
-      final path = await InvoicePdfService.generateInvoice(quoteState);
-      showToast('Descargado', 'Archivo guardado en: $path');
+      final counter = AppConfig.quoteCounter;
+      final quoteNumber = 'COT-${counter.toString().padLeft(3, '0')}';
+
+      final path = await InvoicePdfService.generateInvoice(
+        quoteState,
+        sellerName: sellerName.trim(),
+        quoteNumber: quoteNumber,
+      );
+
+      // Increment counter only after successful generation
+      await AppConfig.incrementQuoteCounter();
+
+      showToast('Descargado', 'Comprobante $quoteNumber guardado en: $path');
     } catch (e) {
       showToast('Error', 'No se pudo descargar el PDF: $e');
     }

@@ -9,7 +9,11 @@ import '../providers/quote_provider.dart';
 import 'package:intl/intl.dart';
 
 class InvoicePdfService {
-  static Future<String> generateInvoice(QuoteState quote, {String sellerName = 'Cristhian Caicedo'}) async {
+  static Future<String> generateInvoice(
+    QuoteState quote, {
+    required String sellerName,
+    required String quoteNumber,
+  }) async {
     final pdf = pw.Document();
     
     // Use Unicode-capable font
@@ -55,14 +59,29 @@ class InvoicePdfService {
                 children: [
                     pw.Padding(
                     padding: const pw.EdgeInsets.only(left: 20),
-                    child: pw.Text(
-                      'IA FACTURA',
-                      style: pw.TextStyle(
-                        color: PdfColors.white,
-                        fontSize: 40,
-                        fontWeight: pw.FontWeight.bold,
-                        font: fontBold,
-                      ),
+                    child: pw.Column(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'COMPROBANTE',
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 32,
+                            fontWeight: pw.FontWeight.bold,
+                            font: fontBold,
+                          ),
+                        ),
+                        pw.Text(
+                          'DE COTIZACIÓN',
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 22,
+                            fontWeight: pw.FontWeight.normal,
+                            font: font,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   pw.Container(
@@ -118,7 +137,7 @@ class InvoicePdfService {
                     crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
                       pw.Text('Vendedor: $sellerName', style: baseStyle),
-                      pw.Text('Nro. Factura: CF-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}', style: baseStyle),
+                      pw.Text('Nro. Comprobante: $quoteNumber', style: baseStyle),
                       pw.Text('Fecha: $dateFormatted', style: baseStyle),
                     ],
                   ),

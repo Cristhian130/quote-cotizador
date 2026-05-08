@@ -35,8 +35,8 @@ class SearchResultsDialog extends StatefulWidget {
 class _SearchResultsDialogState extends State<SearchResultsDialog>
     with SingleTickerProviderStateMixin {
   // ← index-based: fixes the "all selected" bug caused by shared referencia
-  // Use references instead of indices to fix selection mismatches after sorting/filtering
-  final Set<String> _selectedRefs = {};
+  // Use a composite key (ref + bodega) because the same reference can exist in multiple warehouses
+  final Set<String> _selectedIds = {};
   /// Track edited descriptions by product reference (since indices might change if we filtered, 
   /// though here products is usually static for the dialog instance).
   final Map<String, String> _editedDescriptions = {};
@@ -80,32 +80,41 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
     return filtered;
   }
 
-  void _toggle(String ref) {
+  String _getItemId(Product p) => '${p.referencia}_${p.bodega}';
+
+  void _toggle(String id) {
     setState(() {
-      if (_selectedRefs.contains(ref)) {
-        _selectedRefs.remove(ref);
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
       } else {
-        _selectedRefs.add(ref);
+        _selectedIds.add(id);
       }
     });
   }
 
   void _toggleAll() {
     final currentVisible = _getFilteredProducts();
-    final currentVisibleRefs = currentVisible.map((p) => p.referencia).toSet();
+    final currentVisibleIds = currentVisible.map(_getItemId).toSet();
     
     setState(() {
-      if (_selectedRefs.containsAll(currentVisibleRefs)) {
-        _selectedRefs.removeAll(currentVisibleRefs);
+      if (_selectedIds.containsAll(currentVisibleIds)) {
+        _selectedIds.removeAll(currentVisibleIds);
       } else {
-        _selectedRefs.addAll(currentVisibleRefs);
+        _selectedIds.addAll(currentVisibleIds);
       }
     });
   }
 
   void _confirm() {
-    final sel = _selectedRefs.map((ref) {
-      final p = widget.products.firstWhere((p) => p.referencia == ref);
+    final sel = _selectedIds.map((id) {
+      // Split the composite ID to find the product correctly
+      final parts = id.split('_');
+      final ref = parts[0];
+      final bodega = parts[1];
+      
+      final p = widget.products.firstWhere(
+        (p) => p.referencia == ref && p.bodega == bodega,
+      );
       final edited = _editedDescriptions[p.referencia];
       return edited != null ? p.copyWith(descripcion: edited) : p;
     }).toList();
@@ -116,8 +125,8 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
   bool get _allSelected {
     final currentVisible = _getFilteredProducts();
     if (currentVisible.isEmpty) return false;
-    final currentVisibleRefs = currentVisible.map((p) => p.referencia).toSet();
-    return _selectedRefs.containsAll(currentVisibleRefs);
+    final currentVisibleIds = currentVisible.map(_getItemId).toSet();
+    return _selectedIds.containsAll(currentVisibleIds);
   }
 
   @override
@@ -318,14 +327,15 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
       itemCount: filtered.length,
       itemBuilder: (_, i) {
           final product = filtered[i];
+          final itemId = _getItemId(product);
           return _ProductRow(
-            key: ValueKey(product.referencia),
+            key: ValueKey(itemId),
             index: i,
             product: product,
             editedDescription: _editedDescriptions[product.referencia],
-            isSelected: _selectedRefs.contains(product.referencia),
+            isSelected: _selectedIds.contains(itemId),
             formatPrice: _formatPrice,
-            onToggle: () => _toggle(product.referencia),
+            onToggle: () => _toggle(itemId),
             onDescriptionChanged: (val) {
               setState(() {
                 _editedDescriptions[product.referencia] = val;
@@ -354,7 +364,7 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
       ),
       child: Row(
         children: [
-          if (_selectedRefs.isNotEmpty)
+          if (_selectedIds.isNotEmpty)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
@@ -363,7 +373,7 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
                 border: Border.all(color: _lightBlue.withOpacity(0.3)),
               ),
               child: Text(
-                '${_selectedRefs.length} seleccionado${_selectedRefs.length != 1 ? 's' : ''}',
+                '${_selectedIds.length} seleccionado${_selectedIds.length != 1 ? 's' : ''}',
                 style: const TextStyle(color: _lightBlue, fontSize: 12),
               ),
             ),
@@ -377,15 +387,15 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
           ),
           const SizedBox(width: 12),
           AnimatedOpacity(
-            opacity: _selectedRefs.isNotEmpty ? 1.0 : 0.45,
+            opacity: _selectedIds.isNotEmpty ? 1.0 : 0.45,
             duration: const Duration(milliseconds: 200),
             child: ElevatedButton.icon(
-              onPressed: _selectedRefs.isNotEmpty ? _confirm : null,
+              onPressed: _selectedIds.isNotEmpty ? _confirm : null,
               icon: const Icon(Icons.add_shopping_cart, size: 15),
               label: Text(
-                _selectedRefs.isEmpty
+                _selectedIds.isEmpty
                     ? 'Agregar a factura'
-                    : 'Agregar ${_selectedRefs.length} producto${_selectedRefs.length != 1 ? 's' : ''}',
+                    : 'Agregar ${_selectedIds.length} producto${_selectedIds.length != 1 ? 's' : ''}',
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _lightBlue,
