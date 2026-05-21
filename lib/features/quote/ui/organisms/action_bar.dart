@@ -9,6 +9,7 @@ class ActionBar extends StatelessWidget {
   final VoidCallback onLimpiar;
   final VoidCallback onAnadirClientes;
   final VoidCallback onSincronizar;
+  final VoidCallback onValidarReferido;
 
   const ActionBar({
     super.key,
@@ -17,6 +18,7 @@ class ActionBar extends StatelessWidget {
     required this.onLimpiar,
     required this.onAnadirClientes,
     required this.onSincronizar,
+    required this.onValidarReferido,
   });
 
   @override
@@ -34,17 +36,35 @@ class ActionBar extends StatelessWidget {
         spacing: 16,
         runSpacing: 12,
         children: [
-          IAButton(
-            variant: IAButtonVariant.outline,
-            onPressed: onAnadirClientes,
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(LucideIcons.userPlus),
-                SizedBox(width: 8),
-                Text('Clientes'),
-              ],
-            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              IAButton(
+                variant: IAButtonVariant.outline,
+                onPressed: onAnadirClientes,
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(LucideIcons.userPlus),
+                    SizedBox(width: 8),
+                    Text('Clientes'),
+                  ],
+                ),
+              ),
+              IAButton(
+                variant: IAButtonVariant.outline,
+                onPressed: onValidarReferido,
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(LucideIcons.gift),
+                    SizedBox(width: 8),
+                    Text('Referido'),
+                  ],
+                ),
+              ),
+            ],
           ),
           Wrap(
             spacing: 8,
