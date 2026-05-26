@@ -15,6 +15,7 @@ import '../organisms/summary_panel.dart';
 import '../organisms/search_results_dialog.dart';
 import '../organisms/client_stepper_dialog.dart';
 import '../organisms/referral_dialog.dart';
+import '../organisms/vehicle_dialog.dart';
 import '../../presentation/services/invoice_pdf_service.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/config/app_config.dart';
@@ -265,6 +266,10 @@ class _QuotePageState extends ConsumerState<QuotePage> {
     ReferralDialog.show(context);
   }
 
+  void handleConsultarPlaca() {
+    VehicleDialog.show(context);
+  }
+
   void handleSincronizar() {
     // Controller to manage the dialog's state from outside
     final streamController = StreamController<String>.broadcast();
@@ -466,6 +471,7 @@ class _QuotePageState extends ConsumerState<QuotePage> {
                             onAnadirClientes: handleAnadirClientes,
                             onSincronizar: handleSincronizar,
                             onValidarReferido: handleValidarReferido,
+                            onConsultarPlaca: handleConsultarPlaca,
                           ),
                         ],
                       ),

@@ -7,7 +7,7 @@
         Name="com.cristhian130.quote"
         Publisher="CN=Importadoras Asociadas SAS, O=Importadoras Asociadas, C=CO"
         Version="1.0.7.0"
-        Uri="https://github.com/Cristhian130/quote-cotizador/releases/download/v1.0.8+9/quote-1.0.8+9-windows.msix"
+        Uri="https://github.com/Cristhian130/quote-cotizador/releases/download/v1.0.9+10/quote-1.0.9+10-windows.msix"
         ProcessorArchitecture="x64"/>
     <UpdateSettings>
         <OnLaunch HoursBetweenUpdateChecks="0"/>
