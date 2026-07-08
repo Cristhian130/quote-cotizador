@@ -11,6 +11,7 @@ class ActionBar extends StatelessWidget {
   final VoidCallback onSincronizar;
   final VoidCallback onValidarReferido;
   final VoidCallback onConsultarPlaca;
+  final VoidCallback onAplicarBono;
 
   const ActionBar({
     super.key,
@@ -21,6 +22,7 @@ class ActionBar extends StatelessWidget {
     required this.onSincronizar,
     required this.onValidarReferido,
     required this.onConsultarPlaca,
+    required this.onAplicarBono,
   });
 
   @override
@@ -63,6 +65,18 @@ class ActionBar extends StatelessWidget {
                     Icon(LucideIcons.gift),
                     SizedBox(width: 8),
                     Text('Referido'),
+                  ],
+                ),
+              ),
+              IAButton(
+                variant: IAButtonVariant.outline,
+                onPressed: onAplicarBono,
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(LucideIcons.tag),
+                    SizedBox(width: 8),
+                    Text('Bono'),
                   ],
                 ),
               ),

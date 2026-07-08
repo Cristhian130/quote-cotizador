@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../models/vehicle_info.dart';
 import '../../presentation/services/vehicle_service.dart';
+import '../../../../core/config/app_config.dart';
 
 class VehicleDialog extends StatefulWidget {
   const VehicleDialog({super.key});
@@ -55,6 +56,8 @@ class _VehicleDialogState extends State<VehicleDialog> {
         setState(() {
           _vehicleInfo = res;
         });
+        // Registrar en backend en background
+        _service.trackVinQuery(placa, AppConfig.sellerName, res);
       } else {
         setState(() {
           _errorMessage = 'No se encontró información para la placa "$placa"';

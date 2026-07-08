@@ -16,13 +16,16 @@ class VehicleInfo {
   });
 
   factory VehicleInfo.fromJson(Map<String, dynamic> json) {
+    // La nueva API anida la información dentro de 'vin de este vehiculo'
+    final vinInfo = json['vin de este vehiculo'] as Map<String, dynamic>? ?? json;
+
     return VehicleInfo(
-      marca: json['marca'] ?? '',
-      linea: json['linea'] ?? '',
-      version: json['version'] ?? '',
-      modelo: json['modelo'] ?? '',
-      vin: json['vin'] ?? '',
-      vinEsReferenciaNoReal: json['vinEsReferenciaNoReal'] ?? false,
+      marca: vinInfo['marca']?.toString() ?? '',
+      linea: vinInfo['linea']?.toString() ?? '',
+      version: vinInfo['version']?.toString() ?? '',
+      modelo: vinInfo['modelo']?.toString() ?? '',
+      vin: vinInfo['vin']?.toString() ?? '',
+      vinEsReferenciaNoReal: vinInfo['vinEsReferenciaNoReal'] ?? false,
     );
   }
 

@@ -16,6 +16,7 @@ import '../organisms/search_results_dialog.dart';
 import '../organisms/client_stepper_dialog.dart';
 import '../organisms/referral_dialog.dart';
 import '../organisms/vehicle_dialog.dart';
+import '../organisms/bonus_dialog.dart';
 import '../../presentation/services/invoice_pdf_service.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/config/app_config.dart';
@@ -31,6 +32,84 @@ class _QuotePageState extends ConsumerState<QuotePage> {
   String referencia = '';
   String descripcion = '';
   String bodega = '';
+
+  static bool _sessionNameValidated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!_sessionNameValidated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _promptForSellerName();
+      });
+    }
+  }
+
+  Future<void> _promptForSellerName() async {
+    final controller = TextEditingController(text: AppConfig.sellerName);
+    
+    // Using WillPopScope equivalent (or just barrierDismissible: false + no cancel)
+    // to force the user to enter a name.
+    final String? name = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        // WillPopScope is deprecated in flutter 3.12+, but PopScope is standard.
+        // We'll just provide an AlertDialog without a close button and handle it there.
+        return PopScope(
+          canPop: false,
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: const Text('Bienvenido'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Por favor, ingresa tu nombre de usuario para continuar. Este dato es obligatorio para realizar consultas.',
+                  style: TextStyle(fontSize: 13, color: IaColors.mutedForeground),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Nombre de Usuario',
+                    hintText: 'Ej. cristian.caicedo',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    prefixIcon: const Icon(Icons.person_outline),
+                  ),
+                  onSubmitted: (val) {
+                    if (val.trim().isNotEmpty) {
+                      Navigator.of(context).pop(val);
+                    }
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  if (controller.text.trim().isNotEmpty) {
+                    Navigator.of(context).pop(controller.text);
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: IaColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Continuar'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (name != null && name.trim().isNotEmpty) {
+      await AppConfig.setSellerName(name.trim());
+      _sessionNameValidated = true;
+    }
+  }
 
   // Getters moved to provider or calculated from provider state
   QuoteState get quoteState => ref.watch(quoteProvider);
@@ -270,6 +349,14 @@ class _QuotePageState extends ConsumerState<QuotePage> {
     VehicleDialog.show(context);
   }
 
+  void handleAplicarBono() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => BonusDialog(activeBodega: bodega),
+    );
+  }
+
   void handleSincronizar() {
     // Controller to manage the dialog's state from outside
     final streamController = StreamController<String>.broadcast();
@@ -472,6 +559,7 @@ class _QuotePageState extends ConsumerState<QuotePage> {
                             onSincronizar: handleSincronizar,
                             onValidarReferido: handleValidarReferido,
                             onConsultarPlaca: handleConsultarPlaca,
+                            onAplicarBono: handleAplicarBono,
                           ),
                         ],
                       ),

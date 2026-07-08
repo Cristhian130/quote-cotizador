@@ -116,7 +116,7 @@ msix_config:
   publisher_display_name: Importadoras Asociadas
   identity_name: com.cristhian130.quote
   publisher: CN=Importadoras Asociadas SAS, O=Importadoras Asociadas, C=CO
-  msix_version: 1.0.7.0
+  msix_version: 1.0.10.11
   certificate_path: certificate.pfx
   certificate_password: Importadoras2024
   install_certificate: "false"

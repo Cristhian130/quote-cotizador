@@ -53,7 +53,7 @@ final class RemoteDataSourceProvider
   }
 }
 
-String _$remoteDataSourceHash() => r'4e0494922526ceeaeecacff801002549678dc6b5';
+String _$remoteDataSourceHash() => r'd04204e3262ccfa612b6f0442c5554e10dcbda2a';
 
 @ProviderFor(sqliteDataSource)
 final sqliteDataSourceProvider = SqliteDataSourceProvider._();
