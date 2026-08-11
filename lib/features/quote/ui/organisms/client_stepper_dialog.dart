@@ -7,7 +7,7 @@ import '../atoms/siesa_button.dart';
 import '../../presentation/providers/notification_provider.dart';
 import '../../presentation/providers/quote_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ClientStepperDialog extends ConsumerStatefulWidget {
   const ClientStepperDialog({super.key});

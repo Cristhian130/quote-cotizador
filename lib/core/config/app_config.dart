@@ -16,7 +16,12 @@ class AppConfig {
   static late Box _box;
 
   static Future<void> init() async {
-    _box = await Hive.openBox(_boxName);
+    try {
+      _box = await Hive.openBox(_boxName);
+    } catch (_) {
+      await Hive.deleteBoxFromDisk(_boxName);
+      _box = await Hive.openBox(_boxName);
+    }
   }
 
   /// Returns the currently active base URL.

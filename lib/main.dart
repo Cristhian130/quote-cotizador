@@ -18,9 +18,24 @@ void main() async {
     databaseFactory = databaseFactoryFfi;
   }
 
-  await HiveDatabase.init();
-  await AppConfig.init();
-  await initializeDateFormatting('es_CO', null);
+  try {
+    await HiveDatabase.init();
+  } catch (e) {
+    debugPrint('⚠️ Error en HiveDatabase.init: $e');
+  }
+
+  try {
+    await AppConfig.init();
+  } catch (e) {
+    debugPrint('⚠️ Error en AppConfig.init: $e');
+  }
+
+  try {
+    await initializeDateFormatting('es_CO', null);
+  } catch (e) {
+    debugPrint('⚠️ Error en initializeDateFormatting: $e');
+  }
+
   runApp(const ProviderScope(child: MyApp()));
 }
 

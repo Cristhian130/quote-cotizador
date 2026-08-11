@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/ia_colors.dart';
 import '../molecules/checkbox_with_label.dart';
 import '../molecules/ia_select.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import '../../presentation/providers/delivery_provider.dart';
 import '../../presentation/providers/quote_provider.dart';
