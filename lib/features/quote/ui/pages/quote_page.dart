@@ -29,6 +29,7 @@ class _QuotePageState extends ConsumerState<QuotePage> {
   String vehiculo = 'MO';
   String ciudad = '';
   String barrio = '';
+  QuotePrioritySelection? _prioritySelection;
 
   // Val. Mercancia = P.+IVA × cantidad (antes de descuento)
   double get valMercancia => items.fold(
@@ -142,11 +143,21 @@ class _QuotePageState extends ConsumerState<QuotePage> {
   }
 
   void _showSearchResultsModal(List<Product> products) {
-    SearchResultsDialog.show(context, products, (selected) {
-      for (final p in selected) {
-        _addProductToInvoice(p);
-      }
-    });
+    SearchResultsDialog.show(
+      context,
+      products,
+      (selected) {
+        for (final p in selected) {
+          _addProductToInvoice(p);
+        }
+      },
+      isPriority: _prioritySelection == null
+          ? null
+          : (product) => _prioritySelection!.matches(
+              product.referencia,
+              product.bodega,
+            ),
+    );
   }
 
   void handleUpdateCantidad(String id, int cantidad) {
@@ -248,14 +259,33 @@ class _QuotePageState extends ConsumerState<QuotePage> {
               const InvoiceHeader(),
               SearchPanel(
                 referencia: referencia,
-                setReferencia: (v) => setState(() => referencia = v),
+                setReferencia: (v) => setState(() {
+                  referencia = v;
+                  _prioritySelection = null;
+                }),
                 descripcion: descripcion,
-                setDescripcion: (v) => setState(() => descripcion = v),
+                setDescripcion: (v) => setState(() {
+                  descripcion = v;
+                  _prioritySelection = null;
+                }),
                 bodega: bodega,
-                setBodega: (v) => setState(() => bodega = v),
+                setBodega: (v) => setState(() {
+                  bodega = v;
+                  _prioritySelection = null;
+                }),
                 onBuscar: handleBuscar,
               ),
-              const StockAlertBanner(),
+              StockAlertBanner(
+                warehouse: bodega,
+                onSelectPriority: (selection) {
+                  setState(() {
+                    _prioritySelection = selection;
+                    referencia = selection.reference;
+                    descripcion = '';
+                  });
+                  handleBuscar();
+                },
+              ),
               Expanded(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,

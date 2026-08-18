@@ -2,30 +2,35 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../domain/entities/product.dart';
 import '../../../../core/theme/ia_colors.dart';
-import '../../../../features/stock/data/stock_alerts_demo.dart';
 
 const Color _lightBlue = Color(0xFF458AC9);
 
 class SearchResultsDialog extends StatefulWidget {
   final List<Product> products;
   final void Function(List<Product> selected) onAddSelected;
+  final bool Function(Product product)? isPriority;
 
   const SearchResultsDialog({
     super.key,
     required this.products,
     required this.onAddSelected,
+    this.isPriority,
   });
 
   static Future<void> show(
     BuildContext context,
     List<Product> products,
-    void Function(List<Product>) onAddSelected,
-  ) {
+    void Function(List<Product>) onAddSelected, {
+    bool Function(Product product)? isPriority,
+  }) {
     return showDialog(
       context: context,
       barrierColor: Colors.black.withOpacity(0.65),
-      builder: (_) =>
-          SearchResultsDialog(products: products, onAddSelected: onAddSelected),
+      builder: (_) => SearchResultsDialog(
+        products: products,
+        onAddSelected: onAddSelected,
+        isPriority: isPriority,
+      ),
     );
   }
 
@@ -94,6 +99,10 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
 
   bool get _allSelected =>
       widget.products.isNotEmpty && _selected.length == widget.products.length;
+
+  int get _priorityCount => widget.isPriority == null
+      ? 0
+      : widget.products.where(widget.isPriority!).length;
 
   @override
   Widget build(BuildContext context) {
@@ -168,7 +177,9 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
                 ),
               ),
               Text(
-                '${widget.products.length} producto${widget.products.length != 1 ? 's' : ''} encontrado${widget.products.length != 1 ? 's' : ''}',
+                _priorityCount == 0
+                    ? '${widget.products.length} producto${widget.products.length != 1 ? 's' : ''} encontrado${widget.products.length != 1 ? 's' : ''}'
+                    : '${widget.products.length} resultados · $_priorityCount con prioridad de venta',
                 style: const TextStyle(
                   color: IaColors.mutedForeground,
                   fontSize: 12,
@@ -258,6 +269,7 @@ class _SearchResultsDialogState extends State<SearchResultsDialog>
           index: i,
           product: widget.products[i],
           isSelected: _selected.contains(i),
+          isPriority: widget.isPriority?.call(widget.products[i]) ?? false,
           formatPrice: _formatPrice,
           onToggle: () => _toggle(i),
           onAddSingle: () {
@@ -355,6 +367,7 @@ class _ProductRow extends StatefulWidget {
   final int index;
   final Product product;
   final bool isSelected;
+  final bool isPriority;
   final String Function(double) formatPrice;
   final VoidCallback onToggle;
   final VoidCallback onAddSingle;
@@ -364,6 +377,7 @@ class _ProductRow extends StatefulWidget {
     required this.index,
     required this.product,
     required this.isSelected,
+    required this.isPriority,
     required this.formatPrice,
     required this.onToggle,
     required this.onAddSingle,
@@ -378,7 +392,7 @@ class _ProductRowState extends State<_ProductRow> {
 
   @override
   Widget build(BuildContext context) {
-    final bool active = _hovered || widget.isSelected;
+    final bool active = _hovered || widget.isSelected || widget.isPriority;
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -389,6 +403,8 @@ class _ProductRowState extends State<_ProductRow> {
         decoration: BoxDecoration(
           color: widget.isSelected
               ? _lightBlue.withOpacity(0.08)
+              : widget.isPriority
+              ? const Color(0xFF1F8A5B).withOpacity(0.08)
               : (_hovered
                     ? IaColors.muted.withOpacity(0.4)
                     : Colors.transparent),
@@ -396,13 +412,15 @@ class _ProductRowState extends State<_ProductRow> {
           border: Border.all(
             color: widget.isSelected
                 ? _lightBlue.withOpacity(0.4)
+                : widget.isPriority
+                ? const Color(0xFF1F8A5B).withOpacity(0.45)
                 : (_hovered ? IaColors.border : Colors.transparent),
           ),
           boxShadow: active
               ? [
                   BoxShadow(
                     color: Colors.black.withOpacity(
-                      widget.isSelected ? 0.04 : 0.02,
+                      widget.isSelected || widget.isPriority ? 0.04 : 0.02,
                     ),
                     blurRadius: 12,
                     offset: const Offset(0, 2),
@@ -458,30 +476,27 @@ class _ProductRowState extends State<_ProductRow> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (getAlertsForProduct(widget.product.referencia).isNotEmpty) ...[
+                    if (widget.isPriority) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFEF0F0),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: const Color(0xFFFDE1E1)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.local_fire_department, size: 12, color: Color(0xFFE53935)),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Alerta',
-                              style: const TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFFE53935),
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1F8A5B).withOpacity(0.10),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: const Color(0xFF1F8A5B).withOpacity(0.30),
+                          ),
+                        ),
+                        child: const Text(
+                          'Prioridad de venta',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1F8A5B),
+                          ),
                         ),
                       ),
                     ],

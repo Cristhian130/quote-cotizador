@@ -5,7 +5,6 @@ import '../../models/product_item.dart';
 import '../atoms/ia_badge.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
-import '../../../../features/stock/data/stock_alerts_demo.dart';
 
 const Color _neonBlue = Color(0xFF458AC9);
 
@@ -254,33 +253,6 @@ class _GlowingRowState extends State<_GlowingRow>
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (getAlertsForProduct(item.referencia).isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEF0F0),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: const Color(0xFFFDE1E1)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.local_fire_department, size: 10, color: Color(0xFFE53935)),
-                              const SizedBox(width: 3),
-                              Text(
-                                'Alerta',
-                                style: const TextStyle(
-                                  fontSize: 8.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFFE53935),
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),

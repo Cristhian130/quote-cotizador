@@ -124,32 +124,38 @@ class SummaryPanel extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'RESUMEN',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: IaColors.mutedForeground,
-                    letterSpacing: 0.5,
-                  ),
+          Flexible(
+            flex: 2,
+            fit: FlexFit.loose,
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'RESUMEN',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: IaColors.mutedForeground,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _summaryRow('Val. Mercancia', valMercancia),
+                    const SizedBox(height: 8),
+                    _summaryRow('Descuentos', descuentos, isNegative: true),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Divider(height: 1, color: IaColors.border),
+                    ),
+                    _summaryRow('Subtotal', subtotal),
+                    const SizedBox(height: 8),
+                    _summaryRow('IVA', iva),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                _summaryRow('Val. Mercancia', valMercancia),
-                const SizedBox(height: 8),
-                _summaryRow('Descuentos', descuentos, isNegative: true),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Divider(height: 1, color: IaColors.border),
-                ),
-                _summaryRow('Subtotal', subtotal),
-                const SizedBox(height: 8),
-                _summaryRow('IVA', iva),
-              ],
+              ),
             ),
           ),
           const Divider(height: 1, color: IaColors.border),

@@ -1,250 +1,360 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import '../../../../features/stock/data/stock_alerts_demo.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Stock Alert Banner — appears in QuotePage between SearchPanel and the table
-//  Shows proactive inventory alerts derived from active business rules
-// ─────────────────────────────────────────────────────────────────────────────
+import '../../../stock/insights/domain/stock_insight.dart';
+import '../../../stock/shared/application/stock_providers.dart';
+import '../../../stock/shared/domain/stock_data_state.dart';
 
-const Color _alertBg = Color(0xFFFEFCFF);
-const Color _alertBorder = Color(0xFFE8E3FF);
-const Color _purple = Color(0xFF7B5FF5);
-const Color _blue = Color(0xFF458AC9);
-const Color _green = Color(0xFF2BAE7E);
-const Color _orange = Color(0xFFE67E22);
-const Color _red = Color(0xFFE53935);
-const Color _textPrimary = Color(0xFF1C2333);
-const Color _textMuted = Color(0xFF6E7A8A);
+const _blue = Color(0xFF458AC9);
+const _darkBlue = Color(0xFF192D4D);
+const _green = Color(0xFF1F8A5B);
+const _orange = Color(0xFFD97706);
+const _red = Color(0xFFC93C37);
+const _muted = Color(0xFF667085);
+const _text = Color(0xFF1F2937);
+const _border = Color(0xFFDDE3EA);
+const _surface = Color(0xFFF8FAFC);
 
-class StockAlertBanner extends StatefulWidget {
-  const StockAlertBanner({super.key});
+class QuotePrioritySelection {
+  final String reference;
+  final Set<String> warehouses;
 
-  @override
-  State<StockAlertBanner> createState() => _StockAlertBannerState();
+  const QuotePrioritySelection({
+    required this.reference,
+    required this.warehouses,
+  });
+
+  bool matches(String productReference, String productWarehouse) {
+    if (productReference.trim().toUpperCase() !=
+        reference.trim().toUpperCase()) {
+      return false;
+    }
+    if (warehouses.isEmpty) return true;
+    return warehouses.contains(productWarehouse.trim().toUpperCase());
+  }
 }
 
-class _StockAlertBannerState extends State<StockAlertBanner>
-    with SingleTickerProviderStateMixin {
-  bool _expanded = true; // open by default on first load
-  bool _dismissed = false;
-  late final AnimationController _ctrl;
-  late final Animation<double> _heightFactor;
-  late final Animation<double> _fade;
+class StockAlertBanner extends ConsumerStatefulWidget {
+  final String warehouse;
+  final ValueChanged<QuotePrioritySelection>? onSelectPriority;
 
-  // selected filter rule (null = all)
-  String? _filterRuleId;
-  // dismissed individual alert ids
-  final Set<String> _dismissedAlerts = {};
+  const StockAlertBanner({
+    super.key,
+    required this.warehouse,
+    this.onSelectPriority,
+  });
 
-  List<StockAlert> get _allAlerts => generateAlerts();
+  @override
+  ConsumerState<StockAlertBanner> createState() => _StockAlertBannerState();
+}
 
-  List<StockAlert> get _visibleAlerts {
-    return _allAlerts.where((a) {
-      if (_dismissedAlerts.contains(_alertKey(a))) return false;
-      if (_filterRuleId != null && a.regla.id != _filterRuleId) return false;
-      return true;
-    }).toList();
-  }
-
-  String _alertKey(StockAlert a) => '${a.regla.id}__${a.item.referencia}';
+class _StockAlertBannerState extends ConsumerState<StockAlertBanner> {
+  final Set<int> _dismissedSnapshotIds = {};
+  Timer? _warehouseDebounce;
+  List<StockInsight> _items = const [];
+  StockDataOrigin? _origin;
+  Object? _error;
+  String _filter = 'all';
+  bool _expanded = true;
+  bool _hidden = false;
+  bool _loading = false;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 280),
-      value: 1.0, // start open
-    );
-    _heightFactor = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
-    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void didUpdateWidget(covariant StockAlertBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.warehouse.trim().toUpperCase() !=
+        widget.warehouse.trim().toUpperCase()) {
+      _warehouseDebounce?.cancel();
+      _warehouseDebounce = Timer(const Duration(milliseconds: 450), _load);
+    }
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _warehouseDebounce?.cancel();
     super.dispose();
   }
 
-  void _toggle() {
-    if (_expanded) {
-      _ctrl.reverse();
-    } else {
-      _ctrl.forward();
-    }
-    setState(() => _expanded = !_expanded);
+  String get _warehouse => widget.warehouse.trim().toUpperCase();
+
+  List<StockInsight> get _visibleItems {
+    return _items.where((item) {
+      if (_dismissedSnapshotIds.contains(item.snapshotId)) return false;
+      if (_filter == 'all') return true;
+      return item.commercialSuggestion == _filter;
+    }).toList(growable: false);
   }
 
-  Color _ruleColor(StockAlertType tipo) {
-    switch (tipo) {
-      case StockAlertType.sinExistencia: return _red;
-      case StockAlertType.stockCritico: return _orange;
-      case StockAlertType.inmovilizado: return _purple;
-      case StockAlertType.sobrestock: return _orange;
-      case StockAlertType.altaDemanda: return _blue;
-      case StockAlertType.enTransito: return _green;
+  Future<void> _load() async {
+    final generation = ++_loadGeneration;
+    final repository = ref.read(insightsRepositoryProvider);
+    final filters = InsightFilters(
+      warehouse: _warehouse,
+      onlyAlerts: true,
+      pageSize: 100,
+    );
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+
+    try {
+      final local = await repository.readLocal(filters);
+      if (!mounted || generation != _loadGeneration) return;
+      if (local.items.isNotEmpty) {
+        setState(() {
+          _items = _sort(local.items);
+          _origin = StockDataOrigin.local;
+          if (_filter != 'all' &&
+              !_items.any(
+                (item) => item.commercialSuggestion == _filter,
+              )) {
+            _filter = 'all';
+          }
+        });
+      }
+    } catch (_) {
+      // The remote request still has a chance to refresh the panel.
+    }
+
+    try {
+      final result = await repository.load(filters);
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _items = _sort(result.data.items);
+        _origin = result.origin;
+        _dismissedSnapshotIds.clear();
+        if (_filter != 'all' &&
+            !_items.any((item) => item.commercialSuggestion == _filter)) {
+          _filter = 'all';
+        }
+      });
+    } catch (error) {
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() => _error = error);
+    } finally {
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _loading = false);
+      }
     }
   }
 
-  IconData _ruleIcon(StockAlertType tipo) {
-    switch (tipo) {
-      case StockAlertType.sinExistencia: return Icons.remove_shopping_cart;
-      case StockAlertType.stockCritico: return Icons.warning_amber_rounded;
-      case StockAlertType.inmovilizado: return Icons.hourglass_bottom_rounded;
-      case StockAlertType.sobrestock: return Icons.inventory_2_rounded;
-      case StockAlertType.altaDemanda: return Icons.trending_up_rounded;
-      case StockAlertType.enTransito: return Icons.local_shipping_rounded;
-    }
+  List<StockInsight> _sort(List<StockInsight> items) {
+    final sorted = [...items];
+    int priority(StockInsight item) => switch (item.commercialSuggestion) {
+      'priorizar_venta' => 0,
+      'aplicar_descuento' => 1,
+      'trasladar_producto' => 2,
+      _ => 3,
+    };
+    sorted.sort((a, b) {
+      final byAction = priority(a).compareTo(priority(b));
+      if (byAction != 0) return byAction;
+      final byDays = b.daysWithoutSale.compareTo(a.daysWithoutSale);
+      if (byDays != 0) return byDays;
+      return a.reference.compareTo(b.reference);
+    });
+    return sorted;
   }
 
-  Color _accionColor(StockAlertAccion accion) {
-    switch (accion) {
-      case StockAlertAccion.descuento: return _green;
-      case StockAlertAccion.traslado: return _blue;
-      case StockAlertAccion.priorizar: return _purple;
-      case StockAlertAccion.reposicion: return _orange;
-      case StockAlertAccion.liquidacion: return _red;
-    }
+  void _hideAll() {
+    setState(() => _hidden = true);
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 10),
+        content: const Text('Las sugerencias de Smart Insights están ocultas.'),
+        action: SnackBarAction(
+          label: 'Volver a mostrar',
+          onPressed: _restoreAll,
+        ),
+      ),
+    );
+  }
+
+  void _restoreAll() {
+    if (!mounted) return;
+    setState(() => _hidden = false);
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  }
+
+  void _dismissItem(StockInsight item) {
+    setState(() => _dismissedSnapshotIds.add(item.snapshotId));
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text('Sugerencia de ${item.reference} descartada.'),
+        action: SnackBarAction(
+          label: 'Deshacer',
+          onPressed: () {
+            if (mounted) {
+              setState(() => _dismissedSnapshotIds.remove(item.snapshotId));
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  QuotePrioritySelection _selectionFor(StockInsight selected) {
+    final warehouses = _items
+        .where(
+          (item) =>
+              item.reference == selected.reference &&
+              item.commercialSuggestion == selected.commercialSuggestion,
+        )
+        .map((item) => item.warehouse.trim().toUpperCase())
+        .where((warehouse) => warehouse.isNotEmpty)
+        .toSet();
+    return QuotePrioritySelection(
+      reference: selected.reference,
+      warehouses: warehouses,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_dismissed) return const SizedBox.shrink();
+    if (_hidden) return _HiddenInsightsNotice(onRestore: _restoreAll);
 
-    final alerts = _visibleAlerts;
-    final allAlerts = _allAlerts;
-    final uniqueRules = kDemoAlertRules.where(
-      (r) => allAlerts.any((a) => a.regla.id == r.id),
-    ).toList();
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      decoration: BoxDecoration(
-        color: _alertBg,
+    final visible = _visibleItems;
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
         border: Border(
-          bottom: BorderSide(color: _alertBorder, width: 1.5),
-          left: BorderSide(color: _purple, width: 3),
+          left: BorderSide(color: _blue, width: 3),
+          bottom: BorderSide(color: _border),
         ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Header row ────────────────────────────────────────────────────
-          GestureDetector(
-            onTap: _toggle,
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: Colors.transparent,
-              child: Row(
-                children: [
-                  // Pulse dot
-                  _PulseDot(color: _purple),
-                  const SizedBox(width: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: _purple.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(4),
-                      border:
-                          Border.all(color: _purple.withOpacity(0.3)),
-                    ),
-                    child: const Text(
-                      'SMART INSIGHTS',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: _purple,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    '${allAlerts.length} alertas de inventario — Bodega PV122',
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: _textPrimary,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Rule filter chips
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _FilterChip(
-                            label: 'Todas',
-                            color: _textMuted,
-                            selected: _filterRuleId == null,
-                            onTap: () =>
-                                setState(() => _filterRuleId = null),
-                          ),
-                          ...uniqueRules.map((r) => _FilterChip(
-                                label: r.nombre.split(' ').first,
-                                color: _ruleColor(r.tipo),
-                                selected: _filterRuleId == r.id,
-                                onTap: () => setState(() =>
-                                    _filterRuleId = _filterRuleId == r.id
-                                        ? null
-                                        : r.id),
-                              )),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Expand/collapse
-                  AnimatedRotation(
-                    turns: _expanded ? 0 : -0.25,
-                    duration: const Duration(milliseconds: 200),
-                    child: const Icon(Icons.expand_less_rounded,
-                        size: 18, color: _textMuted),
-                  ),
-                  const SizedBox(width: 8),
-                  // Dismiss banner
-                  GestureDetector(
-                    onTap: () => setState(() => _dismissed = true),
-                    child: const Icon(Icons.close_rounded,
-                        size: 16, color: _textMuted),
-                  ),
-                ],
-              ),
+          _BannerHeader(
+            count: _items.length,
+            warehouse: _warehouse,
+            origin: _origin,
+            expanded: _expanded,
+            loading: _loading,
+            onToggle: () => setState(() => _expanded = !_expanded),
+            onRefresh: _loading ? null : _load,
+            onClose: _hideAll,
+          ),
+          if (_expanded) ...[
+            _FilterBar(
+              selected: _filter,
+              items: _items,
+              onSelected: (value) => setState(() => _filter = value),
+            ),
+            if (_loading && _items.isNotEmpty)
+              const LinearProgressIndicator(minHeight: 1),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 250),
+              child: _buildContent(visible),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent(List<StockInsight> visible) {
+    if (_loading && _items.isEmpty) {
+      return const SizedBox(
+        height: 74,
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    if (_items.isEmpty && _error != null) {
+      return _BannerMessage(
+        icon: LucideIcons.cloudOff,
+        title: 'No fue posible cargar las prioridades',
+        message: 'La API no respondió y aún no existen alertas locales.',
+        actionLabel: 'Reintentar',
+        onAction: _load,
+      );
+    }
+    if (_items.isEmpty) {
+      return const _BannerMessage(
+        icon: LucideIcons.checkCircle2,
+        title: 'Sin prioridades pendientes',
+        message: 'No hay alertas comerciales para la bodega seleccionada.',
+      );
+    }
+    if (visible.isEmpty) {
+      return const _BannerMessage(
+        icon: LucideIcons.filter,
+        title: 'Sin resultados en este filtro',
+        message: 'Selecciona otra prioridad comercial.',
+      );
+    }
+    return ListView.separated(
+      padding: EdgeInsets.zero,
+      shrinkWrap: true,
+      itemCount: visible.length,
+      separatorBuilder: (_, __) => const Divider(height: 1, color: _border),
+      itemBuilder: (context, index) {
+        final item = visible[index];
+        return _PriorityRow(
+          item: item,
+          onSelect: widget.onSelectPriority == null
+              ? null
+              : () => widget.onSelectPriority!(_selectionFor(item)),
+          onDismiss: () => _dismissItem(item),
+        );
+      },
+    );
+  }
+}
+
+class _HiddenInsightsNotice extends StatelessWidget {
+  final VoidCallback onRestore;
+
+  const _HiddenInsightsNotice({required this.onRestore});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 38),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: const BoxDecoration(
+        color: _surface,
+        border: Border(bottom: BorderSide(color: _border)),
+      ),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.bell, size: 14, color: _muted),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'Las sugerencias de Smart Insights están ocultas.',
+              style: TextStyle(fontSize: 10.5, color: _muted),
             ),
           ),
-
-          // ── Collapsible alert list ─────────────────────────────────────────
-          SizeTransition(
-            sizeFactor: _heightFactor,
-            child: FadeTransition(
-              opacity: _fade,
-              child: Container(
-                constraints: const BoxConstraints(maxHeight: 220),
-                child: alerts.isEmpty
-                    ? _EmptyFilter()
-                    : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-                        shrinkWrap: true,
-                        itemCount: alerts.length,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(height: 6),
-                        itemBuilder: (ctx, i) {
-                          final alert = alerts[i];
-                          return _AlertTile(
-                            alert: alert,
-                            ruleColor: _ruleColor(alert.regla.tipo),
-                            ruleIcon: _ruleIcon(alert.regla.tipo),
-                            accionColor: _accionColor(alert.regla.accion),
-                            onDismiss: () => setState(() =>
-                                _dismissedAlerts.add(_alertKey(alert))),
-                          );
-                        },
-                      ),
-              ),
-            ),
+          TextButton(
+            onPressed: onRestore,
+            child: const Text('Volver a mostrar'),
           ),
         ],
       ),
@@ -252,305 +362,440 @@ class _StockAlertBannerState extends State<StockAlertBanner>
   }
 }
 
-// ── Pulse dot ─────────────────────────────────────────────────────────────────
+class _BannerHeader extends StatelessWidget {
+  final int count;
+  final String warehouse;
+  final StockDataOrigin? origin;
+  final bool expanded;
+  final bool loading;
+  final VoidCallback onToggle;
+  final VoidCallback? onRefresh;
+  final VoidCallback onClose;
 
-class _PulseDot extends StatefulWidget {
-  final Color color;
-  const _PulseDot({required this.color});
-  @override
-  State<_PulseDot> createState() => _PulseDotState();
-}
-
-class _PulseDotState extends State<_PulseDot>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c;
-  late final Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _c = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1100),
-    )..repeat(reverse: true);
-    _scale = Tween<double>(begin: 0.7, end: 1.3).animate(
-        CurvedAnimation(parent: _c, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-        animation: _scale,
-        builder: (_, __) => Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: widget.color,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: widget.color.withOpacity(0.5 * _scale.value),
-                blurRadius: 6 * _scale.value,
-                spreadRadius: 1,
-              ),
-            ],
-          ),
-        ),
-      );
-}
-
-// ── Filter chip ───────────────────────────────────────────────────────────────
-
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final Color color;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _FilterChip({
-    required this.label,
-    required this.color,
-    required this.selected,
-    required this.onTap,
+  const _BannerHeader({
+    required this.count,
+    required this.warehouse,
+    required this.origin,
+    required this.expanded,
+    required this.loading,
+    required this.onToggle,
+    required this.onRefresh,
+    required this.onClose,
   });
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          margin: const EdgeInsets.only(right: 5),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: selected ? color.withOpacity(0.12) : Colors.transparent,
-            borderRadius: BorderRadius.circular(4),
-            border:
-                Border.all(color: selected ? color.withOpacity(0.4) : const Color(0xFFDDE1E8)),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 10.5,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-              color: selected ? color : _textMuted,
-            ),
-          ),
-        ),
-      );
-}
-
-// ── Individual alert tile ─────────────────────────────────────────────────────
-
-class _AlertTile extends StatefulWidget {
-  final StockAlert alert;
-  final Color ruleColor;
-  final IconData ruleIcon;
-  final Color accionColor;
-  final VoidCallback onDismiss;
-
-  const _AlertTile({
-    required this.alert,
-    required this.ruleColor,
-    required this.ruleIcon,
-    required this.accionColor,
-    required this.onDismiss,
-  });
-
-  @override
-  State<_AlertTile> createState() => _AlertTileState();
-}
-
-class _AlertTileState extends State<_AlertTile> {
-  bool _hovered = false;
-  bool _applied = false;
 
   @override
   Widget build(BuildContext context) {
-    final item = widget.alert.item;
-    final regla = widget.alert.regla;
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 130),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(
-          color: _hovered
-              ? widget.ruleColor.withOpacity(0.04)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(7),
-          border: Border.all(
-            color: _hovered
-                ? widget.ruleColor.withOpacity(0.3)
-                : const Color(0xFFE8ECF0),
+    final sourceLabel = origin == null
+        ? null
+        : origin == StockDataOrigin.local
+        ? 'Datos locales'
+        : 'Backend';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: _blue.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: const Icon(Icons.auto_awesome, size: 15, color: _blue),
           ),
-          boxShadow: _hovered
-              ? [
-                  BoxShadow(
-                    color: widget.ruleColor.withOpacity(0.08),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  )
-                ]
-              : [],
-        ),
-        child: Row(
-          children: [
-            // Rule type icon
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: widget.ruleColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Icon(widget.ruleIcon,
-                  size: 14, color: widget.ruleColor),
-            ),
-            const SizedBox(width: 9),
-
-            // Product + rule info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          item.descripcion,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: _textPrimary,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      // Existence badge
-                      _MiniChip(
-                        label: 'Stock: ${item.existencia.toInt()} ${item.unidad}',
-                        color: item.existencia == 0 ? _red : _textMuted,
-                      ),
-                      const SizedBox(width: 4),
-                      _MiniChip(
-                        label: item.clasificacion,
-                        color: item.clasificacion == 'ZZ' || item.clasificacion == 'Z'
-                            ? _orange
-                            : _green,
-                      ),
-                      if (item.cantTransito > 0) ...[
-                        const SizedBox(width: 4),
-                        _MiniChip(
-                          label: '+${item.cantTransito.toInt()} tránsito',
-                          color: _blue,
-                        ),
-                      ],
-                      if (item.diasSinMovimiento > 90) ...[
-                        const SizedBox(width: 4),
-                        _MiniChip(
-                          label: '${item.diasSinMovimiento}d sin mov.',
-                          color: _purple,
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    regla.nombre,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      color: widget.ruleColor,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-
-            // Action button
-            GestureDetector(
-              onTap: () => setState(() => _applied = !_applied),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _applied
-                      ? const Color(0xFFF4F5F7)
-                      : widget.accionColor,
-                  borderRadius: BorderRadius.circular(5),
-                  border: Border.all(
-                    color: _applied
-                        ? const Color(0xFFDDE1E8)
-                        : widget.accionColor,
-                  ),
-                ),
-                child: Text(
-                  _applied ? '✓ Aplicado' : widget.alert.accionTexto,
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'SMART INSIGHTS',
                   style: TextStyle(
                     fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                    color: _applied ? _textMuted : Colors.white,
+                    fontWeight: FontWeight.w800,
+                    color: _darkBlue,
                   ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$count prioridades · ${warehouse.isEmpty ? 'Todas las bodegas' : 'Bodega $warehouse'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11.5, color: _muted),
+                ),
+              ],
+            ),
+          ),
+          if (sourceLabel != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: (origin == StockDataOrigin.local ? _orange : _green)
+                    .withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                sourceLabel,
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                  color: origin == StockDataOrigin.local ? _orange : _green,
                 ),
               ),
             ),
-            const SizedBox(width: 6),
+          IconButton(
+            tooltip: 'Actualizar prioridades',
+            onPressed: onRefresh,
+            visualDensity: VisualDensity.compact,
+            icon: loading
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(LucideIcons.refreshCw, size: 15),
+          ),
+          IconButton(
+            tooltip: expanded ? 'Contraer' : 'Expandir',
+            onPressed: onToggle,
+            visualDensity: VisualDensity.compact,
+            icon: Icon(
+              expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+              size: 16,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Ocultar todas las sugerencias',
+            onPressed: onClose,
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(LucideIcons.x, size: 16),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-            // Dismiss individual
-            GestureDetector(
-              onTap: widget.onDismiss,
-              child: const Icon(Icons.close_rounded,
-                  size: 13, color: _textMuted),
+class _FilterBar extends StatelessWidget {
+  final String selected;
+  final List<StockInsight> items;
+  final ValueChanged<String> onSelected;
+
+  const _FilterBar({
+    required this.selected,
+    required this.items,
+    required this.onSelected,
+  });
+
+  int _count(String value) => value == 'all'
+      ? items.length
+      : items.where((item) => item.commercialSuggestion == value).length;
+
+  @override
+  Widget build(BuildContext context) {
+    const filters = <(String, String)>[
+      ('all', 'Todas'),
+      ('priorizar_venta', 'Priorizar venta'),
+      ('aplicar_descuento', 'Aplicar descuento'),
+      ('trasladar_producto', 'Trasladar'),
+    ];
+    return Container(
+      color: _surface,
+      padding: const EdgeInsets.fromLTRB(14, 6, 14, 7),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: filters.where((entry) => _count(entry.$1) > 0).map((entry) {
+          final active = selected == entry.$1;
+          return ChoiceChip(
+            selected: active,
+            showCheckmark: false,
+            visualDensity: VisualDensity.compact,
+            label: Text('${entry.$2} (${_count(entry.$1)})'),
+            labelStyle: TextStyle(
+              fontSize: 10.5,
+              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
+            onSelected: (_) => onSelected(entry.$1),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _PriorityRow extends StatelessWidget {
+  final StockInsight item;
+  final VoidCallback? onSelect;
+  final VoidCallback onDismiss;
+
+  const _PriorityRow({
+    required this.item,
+    required this.onSelect,
+    required this.onDismiss,
+  });
+
+  Color get _actionColor => switch (item.commercialSuggestion) {
+    'priorizar_venta' => _green,
+    'aplicar_descuento' => _orange,
+    'trasladar_producto' => _blue,
+    _ => _muted,
+  };
+
+  IconData get _actionIcon => switch (item.commercialSuggestion) {
+    'priorizar_venta' => LucideIcons.trendingUp,
+    'aplicar_descuento' => LucideIcons.badgePercent,
+    'trasladar_producto' => LucideIcons.arrowLeftRight,
+    _ => LucideIcons.alertTriangle,
+  };
+
+  String get _actionLabel => switch (item.commercialSuggestion) {
+    'priorizar_venta' => 'Priorizar venta',
+    'aplicar_descuento' => 'Aplicar descuento',
+    'trasladar_producto' => 'Revisar traslado',
+    _ => 'Revisión comercial',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 850;
+        final identity = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              item.reference,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: _text,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              item.description,
+              maxLines: compact ? 2 : 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, color: _muted),
             ),
           ],
+        );
+        final metrics = Wrap(
+          spacing: 5,
+          runSpacing: 5,
+          children: [
+            _ValueChip(
+              label: item.warehouse.isEmpty ? 'Sin bodega' : item.warehouse,
+              color: _muted,
+            ),
+            _ValueChip(
+              label: '${_number(item.availableStock)} disponibles',
+              color: item.availableStock > 0 ? _green : _red,
+            ),
+            _ValueChip(
+              label: item.classification.isEmpty
+                  ? 'Sin clase'
+                  : item.classification,
+              color: const {'Z', 'ZZ'}.contains(item.classification)
+                  ? _red
+                  : _orange,
+            ),
+            _ValueChip(
+              label: '${item.daysWithoutSale} d sin venta',
+              color: item.daysWithoutSale >= 180 ? _red : _muted,
+            ),
+          ],
+        );
+        final action = FilledButton.icon(
+          onPressed: onSelect,
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(0, 31),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            backgroundColor: _actionColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(5),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          icon: Icon(_actionIcon, size: 13),
+          label: Text(
+            item.commercialSuggestion == 'priorizar_venta'
+                ? 'Cotizar ahora'
+                : 'Usar referencia',
+          ),
+        );
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
+          child: compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(_actionIcon, size: 16, color: _actionColor),
+                        const SizedBox(width: 8),
+                        Expanded(child: identity),
+                        IconButton(
+                          tooltip: 'Descartar sugerencia',
+                          onPressed: onDismiss,
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(LucideIcons.x, size: 14),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 7),
+                    metrics,
+                    const SizedBox(height: 7),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _actionLabel,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: _actionColor,
+                            ),
+                          ),
+                        ),
+                        action,
+                      ],
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: _actionColor.withValues(alpha: 0.09),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: Icon(_actionIcon, size: 15, color: _actionColor),
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(flex: 3, child: identity),
+                    const SizedBox(width: 12),
+                    Expanded(flex: 4, child: metrics),
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      width: 120,
+                      child: Text(
+                        _actionLabel,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: _actionColor,
+                        ),
+                      ),
+                    ),
+                    action,
+                    IconButton(
+                      tooltip: 'Descartar sugerencia',
+                      onPressed: onDismiss,
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(LucideIcons.x, size: 14),
+                    ),
+                  ],
+                ),
+        );
+      },
+    );
+  }
+}
+
+class _ValueChip extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _ValueChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 9.5,
+          fontWeight: FontWeight.w600,
+          color: color,
         ),
       ),
     );
   }
 }
 
-class _MiniChip extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _MiniChip({required this.label, required this.color});
+class _BannerMessage extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  const _BannerMessage({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.10),
-          borderRadius: BorderRadius.circular(3),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 9.5,
-            fontWeight: FontWeight.w600,
-            color: color,
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 82,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 19, color: _muted),
+          const SizedBox(width: 9),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: _text,
+                  ),
+                ),
+                Text(
+                  message,
+                  style: const TextStyle(fontSize: 10.5, color: _muted),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
+          if (actionLabel != null) ...[
+            const SizedBox(width: 12),
+            TextButton(onPressed: onAction, child: Text(actionLabel!)),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
-class _EmptyFilter extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => Container(
-        height: 56,
-        alignment: Alignment.center,
-        child: const Text(
-          'No hay alertas para este filtro',
-          style: TextStyle(fontSize: 12, color: _textMuted),
-        ),
-      );
-}
+String _number(num value) => value == value.roundToDouble()
+    ? value.toInt().toString()
+    : value.toStringAsFixed(2);
