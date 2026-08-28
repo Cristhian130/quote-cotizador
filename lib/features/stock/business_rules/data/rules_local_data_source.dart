@@ -1,21 +1,43 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../../../../core/database/sqlite_database.dart';
-import '../domain/alert_rules.dart';
+import '../domain/business_rule.dart';
 
 class RulesLocalDataSource {
-  Future<AlertRules?> read() async {
+  Future<List<BusinessRule>> read() async {
     final db = await SQLiteDatabase.database;
-    final rows = await db.query('stock_alert_rules', limit: 1);
-    return rows.isEmpty ? null : AlertRules.fromDatabase(rows.first);
+    final rows = await db.query(
+      'stock_business_rules',
+      orderBy: 'created_at ASC',
+    );
+    return rows.map(BusinessRule.fromDatabase).toList(growable: false);
   }
 
-  Future<void> save(AlertRules rules, DateTime syncedAt) async {
+  Future<void> replaceAll(List<BusinessRule> rules) async {
+    final db = await SQLiteDatabase.database;
+    await db.transaction((txn) async {
+      await txn.delete('stock_business_rules');
+      for (final rule in rules) {
+        await txn.insert(
+          'stock_business_rules',
+          rule.toDatabase(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+  }
+
+  Future<void> save(BusinessRule rule) async {
     final db = await SQLiteDatabase.database;
     await db.insert(
-      'stock_alert_rules',
-      rules.toDatabase(syncedAt),
+      'stock_business_rules',
+      rule.toDatabase(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  Future<void> delete(String id) async {
+    final db = await SQLiteDatabase.database;
+    await db.delete('stock_business_rules', where: 'id = ?', whereArgs: [id]);
   }
 }

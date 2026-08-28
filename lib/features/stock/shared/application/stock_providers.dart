@@ -14,6 +14,9 @@ import '../../inventory/data/inventory_local_data_source.dart';
 import '../../inventory/data/inventory_remote_data_source.dart';
 import '../../inventory/data/inventory_repository_impl.dart';
 import '../../inventory/domain/inventory_repository.dart';
+import '../../transfers/data/transfers_remote_data_source.dart';
+import '../../transfers/data/transfers_repository_impl.dart';
+import '../../transfers/domain/transfers_repository.dart';
 
 final stockDioProvider = Provider<Dio>((ref) {
   return Dio(
@@ -46,5 +49,11 @@ final rulesRepositoryProvider = Provider<RulesRepository>((ref) {
     remote: RulesRemoteDataSource(ref.watch(stockDioProvider)),
     local: RulesLocalDataSource(),
     syncBox: HiveDatabase.syncBox,
+  );
+});
+
+final transfersRepositoryProvider = Provider<TransfersRepository>((ref) {
+  return TransfersRepositoryImpl(
+    remote: TransfersRemoteDataSource(ref.watch(stockDioProvider)),
   );
 });

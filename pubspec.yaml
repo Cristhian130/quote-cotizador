@@ -39,7 +39,7 @@ dependencies:
   drift: ^2.31.0
   equatable: ^2.0.8
   flutter_riverpod: ^3.2.1
-  freezed: ^3.2.5
+  freezed: ^4.0.0-dev.3
   get_it: ^9.2.1
   hive: ^2.2.3
   hive_flutter: ^1.1.0
@@ -47,12 +47,12 @@ dependencies:
   riverpod_generator: ^4.0.8
   sqflite: ^2.3.3
   sqflite_common_ffi: ^2.3.7+1
-  lucide_icons: ^0.257.0
   path_provider: ^2.1.2
   path: ^1.9.0
   intl: ^0.20.2
   freezed_annotation: 3.1.0
   json_annotation: 4.12.0
+  lucide_icons_flutter: ^3.1.15
   
 dev_dependencies:
   flutter_test:

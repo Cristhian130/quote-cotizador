@@ -22,7 +22,7 @@ class SQLiteDatabase {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 6,
       singleInstance: true,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
@@ -34,6 +34,9 @@ class SQLiteDatabase {
         }
         if (oldVersion < 5) {
           await _createStockIntelligenceTables(db);
+        }
+        if (oldVersion < 6) {
+          await _createManagedBusinessRulesTable(db);
         }
       },
     );
@@ -185,5 +188,70 @@ class SQLiteDatabase {
         synced_at TEXT NOT NULL
       )
     ''');
+
+    await _createManagedBusinessRulesTable(db);
+  }
+
+  static Future<void> _createManagedBusinessRulesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS stock_business_rules (
+        id TEXT PRIMARY KEY,
+        nombre TEXT NOT NULL,
+        tipo_condicion TEXT NOT NULL,
+        umbral REAL NOT NULL,
+        tipo_accion TEXT NOT NULL,
+        valor_accion REAL NOT NULL DEFAULT 0,
+        activa INTEGER NOT NULL DEFAULT 1,
+        es_predeterminada INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+
+    final defaults = <Map<String, Object?>>[
+      {
+        'id': 'default-inventory-age',
+        'nombre': 'Inventario estancado > 90 días',
+        'tipo_condicion': 'inventoryAge',
+        'umbral': 90,
+        'tipo_accion': 'applyDiscount',
+        'valor_accion': 15,
+        'activa': 1,
+        'es_predeterminada': 1,
+        'created_at': '2026-01-01T00:00:00.000',
+        'updated_at': '2026-01-01T00:00:00.000',
+      },
+      {
+        'id': 'default-high-stock-low-rotation',
+        'nombre': 'Stock alto con baja rotación (ZZ)',
+        'tipo_condicion': 'highStockLowRotation',
+        'umbral': 50,
+        'tipo_accion': 'transferProduct',
+        'valor_accion': 20,
+        'activa': 1,
+        'es_predeterminada': 1,
+        'created_at': '2026-01-01T00:00:00.001',
+        'updated_at': '2026-01-01T00:00:00.001',
+      },
+      {
+        'id': 'default-city-inventory-difference',
+        'nombre': 'Diferencia de inventario entre ciudades',
+        'tipo_condicion': 'cityInventoryDifference',
+        'umbral': 30,
+        'tipo_accion': 'transferProduct',
+        'valor_accion': 10,
+        'activa': 0,
+        'es_predeterminada': 1,
+        'created_at': '2026-01-01T00:00:00.002',
+        'updated_at': '2026-01-01T00:00:00.002',
+      },
+    ];
+    for (final rule in defaults) {
+      await db.insert(
+        'stock_business_rules',
+        rule,
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
   }
 }

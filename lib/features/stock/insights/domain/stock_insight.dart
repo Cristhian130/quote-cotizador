@@ -100,6 +100,9 @@ class StockInsight {
   final bool highStockLowRotation;
   final bool allowsDiscount;
   final String commercialSuggestion;
+  final double price;
+  final DateTime? lastSaleCmr;
+  final String colorHex;
 
   const StockInsight({
     required this.snapshotId,
@@ -123,6 +126,9 @@ class StockInsight {
     required this.highStockLowRotation,
     required this.allowsDiscount,
     required this.commercialSuggestion,
+    this.price = 0,
+    this.lastSaleCmr,
+    this.colorHex = '#27ae60',
   });
 
   factory StockInsight.fromJson(Map<String, dynamic> json) {
@@ -148,6 +154,9 @@ class StockInsight {
       highStockLowRotation: _bool(json['stockAltoBajaRotacion']),
       allowsDiscount: _bool(json['aplicaDescuento'], fallback: true),
       commercialSuggestion: '${json['sugerenciaComercial'] ?? ''}',
+      price: _double(json['precio']),
+      lastSaleCmr: DateTime.tryParse('${json['ultimaVentaCmr'] ?? ''}'),
+      colorHex: '${json['colorHex'] ?? '#27ae60'}',
     );
   }
 

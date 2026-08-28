@@ -219,7 +219,7 @@ abstract class _$ProductSearch extends $AsyncNotifier<List<Product>> {
   FutureOr<List<Product>> build();
   @$mustCallSuper
   @override
-  void runBuild() {
+  WhenComplete runBuild() {
     final ref = this.ref as $Ref<AsyncValue<List<Product>>, List<Product>>;
     final element =
         ref.element
@@ -229,6 +229,6 @@ abstract class _$ProductSearch extends $AsyncNotifier<List<Product>> {
               Object?,
               Object?
             >;
-    element.handleCreate(ref, build);
+    return element.handleCreate(ref, build);
   }
 }

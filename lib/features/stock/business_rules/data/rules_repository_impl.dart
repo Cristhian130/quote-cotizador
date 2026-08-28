@@ -2,7 +2,8 @@ import 'package:hive/hive.dart';
 
 import '../../insights/domain/stock_insight.dart';
 import '../../shared/domain/stock_data_state.dart';
-import '../domain/alert_rules.dart';
+import '../domain/business_rule.dart';
+import '../domain/rule_evaluation_filters.dart';
 import '../domain/rules_repository.dart';
 import 'rules_local_data_source.dart';
 import 'rules_remote_data_source.dart';
@@ -19,11 +20,11 @@ class RulesRepositoryImpl implements RulesRepository {
   });
 
   @override
-  Future<StockDataResult<AlertRules>> load() async {
+  Future<StockDataResult<List<BusinessRule>>> load() async {
     try {
       final rules = await remote.fetch();
       final syncedAt = DateTime.now();
-      await local.save(rules, syncedAt);
+      await local.replaceAll(rules);
       await syncBox.put(
         'sync.alertRules.lastSyncAt',
         syncedAt.toIso8601String(),
@@ -35,7 +36,7 @@ class RulesRepositoryImpl implements RulesRepository {
       );
     } catch (_) {
       final rules = await local.read();
-      if (rules == null) rethrow;
+      if (rules.isEmpty) rethrow;
       final raw = syncBox.get('sync.alertRules.lastSyncAt');
       return StockDataResult(
         data: rules,
@@ -48,5 +49,32 @@ class RulesRepositoryImpl implements RulesRepository {
   @override
   Future<InsightPage> evaluate(RuleEvaluationFilters filters) {
     return remote.evaluate(filters);
+  }
+
+  @override
+  Future<BusinessRule> create(BusinessRule rule) async {
+    final created = await remote.create(rule);
+    await local.save(created);
+    return created;
+  }
+
+  @override
+  Future<BusinessRule> update(BusinessRule rule) async {
+    final updated = await remote.update(rule);
+    await local.save(updated);
+    return updated;
+  }
+
+  @override
+  Future<BusinessRule> toggle(BusinessRule rule) async {
+    final updated = await remote.toggle(rule);
+    await local.save(updated);
+    return updated;
+  }
+
+  @override
+  Future<void> delete(BusinessRule rule) async {
+    await remote.delete(rule);
+    await local.delete(rule.id);
   }
 }

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/ia_colors.dart';
 import '../../models/product_item.dart';
 import '../atoms/ia_badge.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
 
 const Color _neonBlue = Color(0xFF458AC9);
