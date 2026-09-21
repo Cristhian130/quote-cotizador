@@ -1,6 +1,8 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/error/failures.dart';
 import '../entities/product.dart';
+import '../entities/product_autocomplete.dart';
+import 'package:dio/dio.dart';
 
 abstract class IProductRepository {
   /// Busca productos basandose en la estrategia de caché multinivel (Hive -> SQLite -> API).
@@ -9,6 +11,11 @@ abstract class IProductRepository {
     String? referencia,
     String? descripcion,
     String? bodega,
+  });
+
+  Future<ProductAutocompleteResult> autocompleteProducts(
+    String query, {
+    CancelToken? cancelToken,
   });
 
   /// Obliga una sincronización desde la API remota hacia SQLite y limpia Hive.

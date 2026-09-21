@@ -64,6 +64,27 @@ class SqliteDataSource {
     });
   }
 
+  Future<List<Product>> autocompleteProducts(
+    String query, {
+    int limit = 10,
+  }) async {
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.isEmpty) return const [];
+
+    final db = await _db;
+    final rows = await db.query(
+      'products',
+      where: '''
+        INSTR(UPPER(referencia), UPPER(?)) > 0
+        OR INSTR(UPPER(descripcion), UPPER(?)) > 0
+      ''',
+      whereArgs: [normalizedQuery, normalizedQuery],
+      limit: limit,
+    );
+
+    return rows.map(Product.fromJson).toList();
+  }
+
   Future<int> getProductsCount() async {
     final db = await _db;
     return Sqflite.firstIntValue(

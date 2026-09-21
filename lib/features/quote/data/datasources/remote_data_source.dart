@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../../domain/entities/product.dart';
+import '../../domain/entities/product_autocomplete.dart';
 import '../../domain/entities/delivery_rule.dart';
 import '../../../../core/config/app_config.dart';
 
@@ -7,6 +8,25 @@ class RemoteDataSource {
   final Dio _dio;
 
   RemoteDataSource(this._dio);
+
+  Future<List<ProductAutocompleteSuggestion>> autocompleteProducts(
+    String query, {
+    CancelToken? cancelToken,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '${AppConfig.baseUrl}/api/cotizacion/productos/autocompletar',
+      queryParameters: {'q': query, 'limit': 10},
+      cancelToken: cancelToken,
+    );
+    final payload = response.data ?? const <String, dynamic>{};
+    final rows = payload['data'];
+    return rows is List
+        ? rows
+            .whereType<Map<String, dynamic>>()
+            .map(ProductAutocompleteSuggestion.fromJson)
+            .toList(growable: false)
+        : const [];
+  }
 
   Future<List<Product>> fetchAllProducts() async {
     final url = '${AppConfig.baseUrl}/api/cotizacion/inventario';

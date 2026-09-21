@@ -1,6 +1,8 @@
 import 'package:dartz/dartz.dart';
+import 'package:dio/dio.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/product.dart';
+import '../../domain/entities/product_autocomplete.dart';
 import '../../domain/entities/delivery_rule.dart';
 import '../../domain/repositories/i_product_repository.dart';
 import '../datasources/hive_data_source.dart';
@@ -17,6 +19,43 @@ class ProductRepositoryImpl implements IProductRepository {
     required this.sqliteDataSource,
     required this.hiveDataSource,
   });
+
+  @override
+  Future<ProductAutocompleteResult> autocompleteProducts(
+    String query, {
+    CancelToken? cancelToken,
+  }) async {
+    try {
+      final suggestions = await remoteDataSource.autocompleteProducts(
+        query,
+        cancelToken: cancelToken,
+      );
+      return ProductAutocompleteResult(suggestions: suggestions);
+    } on DioException catch (error) {
+      if (CancelToken.isCancel(error)) rethrow;
+      final local = await sqliteDataSource.autocompleteProducts(query);
+      final byReference = <String, ProductAutocompleteSuggestion>{};
+      for (final product in local) {
+        final current = byReference[product.referencia];
+        if (current == null || product.disponible > current.nationalAvailableStock) {
+          byReference[product.referencia] = ProductAutocompleteSuggestion(
+            reference: product.referencia,
+            description: product.descripcion,
+            matchType: 'local',
+            relevanceScore: 0,
+            nationalAvailableStock: product.disponible.toDouble(),
+            nationalExistingStock: product.existencia.toDouble(),
+            warehousesWithAvailability: product.disponible > 0 ? 1 : 0,
+            updatedAt: product.fechaActualizacion,
+          );
+        }
+      }
+      return ProductAutocompleteResult(
+        suggestions: byReference.values.take(10).toList(growable: false),
+        isLocal: true,
+      );
+    }
+  }
 
   @override
   Future<Either<Failure, List<Product>>> searchProducts({

@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../presentation/providers/product_provider.dart';
 import '../../presentation/providers/quote_provider.dart';
 import '../../domain/entities/product.dart';
+import '../../domain/entities/product_autocomplete.dart';
 import '../../../../core/theme/ia_colors.dart';
 import '../../models/product_item.dart';
 import '../organisms/invoice_header.dart';
@@ -182,6 +184,24 @@ class _QuotePageState extends ConsumerState<QuotePage> {
       print(stackTrace);
       showToast('Error', 'Error inesperado: ${e.toString()}');
     }
+  }
+
+  Future<ProductAutocompleteResult> _autocomplete(
+    String query,
+    CancelToken cancelToken,
+  ) {
+    return ref.read(productRepositoryProvider).autocompleteProducts(
+          query,
+          cancelToken: cancelToken,
+        );
+  }
+
+  void _selectAutocomplete(ProductAutocompleteSuggestion suggestion) {
+    setState(() {
+      referencia = suggestion.reference;
+      descripcion = '';
+    });
+    handleBuscar();
   }
 
   void _addProductToInvoice(Product product) {
@@ -536,6 +556,8 @@ class _QuotePageState extends ConsumerState<QuotePage> {
                 bodega: bodega,
                 setBodega: (v) => setState(() => bodega = v.toUpperCase()),
                 onBuscar: handleBuscar,
+                onAutocomplete: _autocomplete,
+                onSuggestionSelected: _selectAutocomplete,
               ),
               Expanded(
                 child: Row(
