@@ -9,6 +9,7 @@ class LabeledInput extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
   final bool isDense;
+  final Widget? suffixIcon;
 
   const LabeledInput({
     super.key,
@@ -18,6 +19,7 @@ class LabeledInput extends StatelessWidget {
     this.onChanged,
     this.onSubmitted,
     this.isDense = false,
+    this.suffixIcon,
   });
 
   @override
@@ -42,6 +44,7 @@ class LabeledInput extends StatelessWidget {
           onChanged: onChanged,
           onSubmitted: onSubmitted,
           isDense: isDense,
+          suffixIcon: suffixIcon,
         ),
       ],
     );
